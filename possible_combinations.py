@@ -4,7 +4,7 @@ from helpers import get_param_name_by_id, get_value_name_by_id
 
 def possible_combinations():
     if st.session_state.n_combinations[0] == 0:
-        st.info("Ingen mulige kombinasjoner. Definer parametere og verdier først.")
+        st.info("Ingen mulige kombinasjoner.")
         return
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
