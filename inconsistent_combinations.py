@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from uuid import uuid4
+from helpers import get_param_name_by_id, get_value_name_by_id
 
 def inconsistent_combinations():
     if st.session_state.n_combinations[0] == 0:
@@ -12,9 +13,7 @@ def inconsistent_combinations():
         for param in st.session_state.params:
             values = param["values"]
             value_ids = [value["value_id"] for value in values]
-            value_names_by_id = {
-                value["value_id"]: value["value_name"] for value in values
-            }
+            value_names_by_id = get_value_name_by_id([param])
             value_selector = st.pills(
                 f"**{param['param_name']}**",
                 value_ids,
@@ -51,14 +50,8 @@ def inconsistent_combinations():
     if not st.session_state.inconsistent_combinations:
         st.info("Ingen inkonsistente kombinasjoner registrert.")
     else:
-        param_name_by_id = {
-            param["param_id"]: param["param_name"] for param in st.session_state.params
-        }
-        value_name_by_id = {
-            value["value_id"]: value["value_name"]
-            for param in st.session_state.params
-            for value in param["values"]
-        }
+        param_name_by_id = get_param_name_by_id(st.session_state.params)
+        value_name_by_id = get_value_name_by_id(st.session_state.params)
         param_columns = [param["param_name"] for param in st.session_state.params]
 
         table_rows = []

@@ -1,3 +1,13 @@
+def get_param_name_by_id(params):
+    return {param["param_id"]: param["param_name"] for param in params}
+
+def get_value_name_by_id(params):
+    return {
+        value["value_id"]: value["value_name"]
+        for param in params
+        for value in param["values"]
+    }
+
 def compute_possible_combinations(params):
     if len(params) == 0:
         return 0
