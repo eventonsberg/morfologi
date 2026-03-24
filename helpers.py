@@ -1,3 +1,5 @@
+from itertools import product
+
 def get_param_name_by_id(params):
     return {param["param_id"]: param["param_name"] for param in params}
 
@@ -8,13 +10,25 @@ def get_value_name_by_id(params):
         for value in param["values"]
     }
 
-def compute_possible_combinations(params):
-    if len(params) == 0:
-        return 0
-    n_combinations = 1
-    for param in params:
-        n_values = len(param["values"])
-        if n_values == 0:
-            return 0
-        n_combinations *= n_values
-    return n_combinations
+def get_possible_combinations(params, inconsistent_combinations=None):
+    if len(params) < 2:
+        return []
+    values_by_param = [param["values"] for param in params]
+    if any(len(values) == 0 for values in values_by_param):
+        return []
+    inconsistent_combinations = inconsistent_combinations or []
+    possible_combinations = []
+    for combination in product(*values_by_param):
+        combination_dict = {
+            param["param_id"]: value["value_id"]
+            for param, value in zip(params, combination)
+        }
+        if not any(
+            all(
+                combination_dict.get(param_id) in value_ids
+                for param_id, value_ids in inconsistent_combination["combination_values"].items()
+            )
+            for inconsistent_combination in inconsistent_combinations
+        ):
+            possible_combinations.append(combination_dict)
+    return possible_combinations

@@ -6,9 +6,9 @@ from helpers import get_param_name_by_id, get_value_name_by_id
 def inconsistent_combinations():
     if st.session_state.n_combinations[0] == 0:
         st.info("Ingen mulige kombinasjoner. Definer parametere og verdier først.")
-        st.stop()
+        return
     with st.form("inconsistent_combinations_form", clear_on_submit=True):
-        st.markdown("Velg verdier som ikke kan kombineres med hverandre")
+        st.caption("Velg verdier som ikke kan kombineres med hverandre")
         value_selectors = {}
         for param in st.session_state.params:
             values = param["values"]
@@ -44,7 +44,7 @@ def inconsistent_combinations():
                         "comment": comment.strip(),
                     }
                 )
-                st.success("Inkonsistent kombinasjon registrert.")
+                st.rerun()
     
     st.subheader("Registrerte inkonsistente kombinasjoner")
     if not st.session_state.inconsistent_combinations:
