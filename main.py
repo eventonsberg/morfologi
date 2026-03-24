@@ -12,6 +12,9 @@ if "params" not in st.session_state:
 if "n_combinations" not in st.session_state:
     # n_combinations: [possible_combinations, prev_possible_combinations]
     st.session_state.n_combinations = [0, 0]
+if "inconsistent_combinations" not in st.session_state:
+    # inconsistent_combinations: list of dicts: {combination_id, combination_values: {param_id: [value_id, ...]}, comment}
+    st.session_state.inconsistent_combinations = []
 
 current_n_combinations = compute_possible_combinations(st.session_state.params)
 if current_n_combinations != st.session_state.n_combinations[0]:
