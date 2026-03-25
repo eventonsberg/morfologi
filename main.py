@@ -8,6 +8,16 @@ st.set_page_config(
     page_title="Morfologi",
     page_icon=":material/metro:",
     initial_sidebar_state="collapsed",
+    layout="wide",
+    menu_items={
+        "Report a bug": "mailto:Even-Kristian.Tonsberg@ffi.no; Torgeir.Aambo@ffi.no",
+        "About": """
+            Dette morfologi-verktøyet er utviklet av Even K. Tønsberg og Torgeir Aambø ved Forsvarets forskningsinstitutt (FFI).  
+              
+            Verktøyet er under stadig utvikling.
+            Finner du en feil eller har forslag til forbedringer, vennligst ta kontakt via :blue-badge[Report a bug] i menyen oppe til høyre.
+        """
+    }
 )
 
 if "params" not in st.session_state:
@@ -33,9 +43,9 @@ if current_n_combinations != st.session_state.n_combinations[0]:
     st.session_state.n_combinations[1] = st.session_state.n_combinations[0]
     st.session_state.n_combinations[0] = current_n_combinations
 
-col1, col2 = st.columns([4, 1])
-col1.title("Morfologi")
-col2.metric(
+title_row = st.container(horizontal=True)
+title_row.title("Morfologi")
+title_row.metric(
     "Mulige kombinasjoner",
     st.session_state.n_combinations[0],
     delta=st.session_state.n_combinations[0] - st.session_state.n_combinations[1],

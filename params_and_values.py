@@ -2,55 +2,53 @@ import streamlit as st
 from uuid import uuid4
 
 def params_and_values():
-    hcol1, hcol2 = st.columns([1, 1])
-    hcol1.subheader("Parametere")
-    hcol2.subheader("Verdier")
-    if not st.session_state.params:
-        st.info("Ingen parametere lagt til.")
-    else:
+    n_params = len(st.session_state.params)
+    if n_params:
+        cols = st.columns(n_params)
         for param_idx, param in enumerate(st.session_state.params):
-            col1, col2 = st.columns([1, 1])
-            param_name_key = f"param_name_{param['param_id']}"
-            if param_name_key not in st.session_state:
-                st.session_state[param_name_key] = param["param_name"]
-            with col1:
-                pcol1, pcol2 = st.columns([3, 1])
+            with cols[param_idx]:
+                param_name_key = f"param_name_{param['param_id']}"
+                if param_name_key not in st.session_state:
+                    st.session_state[param_name_key] = param["param_name"]
+                pcol1, pcol2 = st.columns([3, 1], vertical_alignment="bottom")
                 new_param_name = pcol1.text_input(
-                    "Parameternavn",
+                    "Parameter",
                     key=param_name_key,
-                    label_visibility="collapsed",
                 )
                 st.session_state.params[param_idx]["param_name"] = new_param_name
                 if pcol2.button("Slett", key=f"delete_param_{param['param_id']}"):
-                    # Implement later: Remove constraints involving this parameter
+                    # TODO: Remove constraints involving this parameter
                     st.session_state.params.pop(param_idx)
                     st.rerun()
-            with col2:
-                if len(param["values"]) == 0:
-                    st.info("Ingen verdier lagt til for denne parameteren.")
-                else:
-                    for value_idx, value in enumerate(param["values"]):
-                        vcol1, vcol2 = st.columns([3, 1])
-                        value_name_key = f"value_name_{param['param_id']}_{value['value_id']}"
-                        if value_name_key not in st.session_state:
-                            st.session_state[value_name_key] = value["value_name"]
-                        new_value_name = vcol1.text_input(
-                            "Verdi",
-                            key=value_name_key,
-                            label_visibility="collapsed",
-                        )
-                        st.session_state.params[param_idx]["values"][value_idx]["value_name"] = new_value_name
-                        if vcol2.button("Slett", key=f"delete_value_{param['param_id']}_{value['value_id']}"):
-                            # Implement later: Remove constraints involving this value
-                            st.session_state.params[param_idx]["values"].pop(value_idx)
-                            st.rerun()
+        cols = st.columns(n_params)
+        for param_idx, param in enumerate(st.session_state.params):
+            with cols[param_idx]:
+                for value_idx, value in enumerate(param["values"]):
+                    vcol1, vcol2 = st.columns([3, 1], vertical_alignment="bottom")
+                    value_name_key = f"value_name_{param['param_id']}_{value['value_id']}"
+                    if value_name_key not in st.session_state:
+                        st.session_state[value_name_key] = value["value_name"]
+                    new_value_name = vcol1.text_input(
+                        "Verdi",
+                        key=value_name_key,
+                        label_visibility="collapsed" if value_idx > 0 else "visible",
+                    )
+                    st.session_state.params[param_idx]["values"][value_idx]["value_name"] = new_value_name
+                    if vcol2.button("Slett", key=f"delete_value_{param['param_id']}_{value['value_id']}"):
+                        # TODO: Remove constraints involving this value
+                        st.session_state.params[param_idx]["values"].pop(value_idx)
+                        st.rerun()
+        st.divider()
+        st.subheader("Legg til verdier")
+        cols = st.columns(n_params)
+        for param_idx, param in enumerate(st.session_state.params):
+            with cols[param_idx]:
                 with st.form(f"values_form_{param['param_id']}", clear_on_submit=True, border=False):
-                    vform_col1, vform_col2 = st.columns([3, 1])
+                    vform_col1, vform_col2 = st.columns([3, 1], vertical_alignment="bottom")
                     new_value_name = vform_col1.text_input(
-                        "Ny verdi",
+                        param["param_name"],
                         placeholder="Skriv inn verdi",
                         key=f"new_value_name_{param['param_id']}",
-                        label_visibility="collapsed",
                     )
                     submit_value = vform_col2.form_submit_button("Legg til")
                     if submit_value:
@@ -70,9 +68,10 @@ def params_and_values():
                                 }
                                 st.session_state.params[param_idx]["values"].append(new_value)
                                 st.rerun()
-            st.divider()
-    col1, col2 = st.columns([1, 1])
-    with col1.form("params_form", clear_on_submit=True, border=False):
+        st.divider()
+    st.subheader("Legg til parametere")
+    cols = st.columns(max(n_params, 1))
+    with cols[0].form("params_form", clear_on_submit=True, border=False):
         pform_col1, pform_col2 = st.columns([3, 1])
         new_param_name = pform_col1.text_input(
             "Ny parameter",
