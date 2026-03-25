@@ -3,7 +3,8 @@ from params_and_values import params_and_values
 from inconsistent_combinations import inconsistent_combinations
 from possible_combinations import possible_combinations
 from helpers import get_possible_combinations
-from export import export_to_excel
+from export_to_excel import export_to_excel
+from import_from_excel import import_from_excel
 
 st.set_page_config(
     page_title="Morfologi",
@@ -66,13 +67,14 @@ with tab3:
 
 with st.sidebar:
     export_to_excel(inconsistent_combinations_df, possible_combinations_df)
-
-    st.warning(
+    st.divider()
+    import_from_excel()
+    st.divider()
+    st.markdown(
         """
         TODO:
         - Fjerne tilhørende inkonsistente kombinasjoner ved sletting av parametere og verdier.
         - Gjøre det umulig å legge til inkonsistente kombinasjoner som er dekket av allerede registrerte inkonsistente kombinasjoner.
-        - Funksjonalitet for å importere data.
         - Funksjonalitet for å definere klasser av kombinasjoner.
         - Funksjonalitet for å legge til beskrivelser av parametere og verdier.
         """

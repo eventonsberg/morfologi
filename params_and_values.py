@@ -16,7 +16,11 @@ def params_and_values():
                     key=param_name_key,
                 )
                 st.session_state.params[param_idx]["param_name"] = new_param_name
-                if pcol2.button(":material/delete:", key=f"delete_param_{param['param_id']}"):
+                if pcol2.button(
+                    ":material/delete:",
+                    type="tertiary",
+                    key=f"delete_param_{param['param_id']}"
+                ):
                     # TODO: Remove constraints involving this parameter
                     st.session_state.params.pop(param_idx)
                     st.rerun()
@@ -34,7 +38,11 @@ def params_and_values():
                         label_visibility="collapsed" if value_idx > 0 else "visible",
                     )
                     st.session_state.params[param_idx]["values"][value_idx]["value_name"] = new_value_name
-                    if vcol2.button(":material/delete:", key=f"delete_value_{param['param_id']}_{value['value_id']}"):
+                    if vcol2.button(
+                        ":material/delete:",
+                        type="tertiary",
+                        key=f"delete_value_{param['param_id']}_{value['value_id']}"
+                    ):
                         # TODO: Remove constraints involving this value
                         st.session_state.params[param_idx]["values"].pop(value_idx)
                         st.rerun()
@@ -50,7 +58,7 @@ def params_and_values():
                         placeholder="Skriv inn verdi",
                         key=f"new_value_name_{param['param_id']}",
                     )
-                    submit_value = vform_col2.form_submit_button(":material/add:")
+                    submit_value = vform_col2.form_submit_button(":material/add_2:", type="tertiary")
                     if submit_value:
                         value_name = new_value_name.strip()
                         if not value_name:
@@ -78,7 +86,7 @@ def params_and_values():
             placeholder="Skriv inn parameternavn",
             label_visibility="collapsed",
         )
-        submit_param = pform_col2.form_submit_button(":material/add:")
+        submit_param = pform_col2.form_submit_button(":material/add_2:", type="tertiary")
         if submit_param:
             param_name = new_param_name.strip()
             if not param_name:

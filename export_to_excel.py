@@ -25,8 +25,11 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
     excel_data = output.getvalue()
+    
+    st.header("Lagre analyse")
     st.download_button(
         label="Eksporter til Excel",
+        icon=":material/download:",
         data=excel_data,
         file_name="Morfologi.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
