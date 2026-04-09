@@ -19,11 +19,31 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
                 lambda value: "; ".join(value) if isinstance(value, list) else value
             )
 
+    descriptions_data = []
+    for param in st.session_state.params:
+        param_name = param["param_name"].strip()
+        param_desc = param["param_description"].strip()
+        descriptions_data.append({
+            "Parameter": param_name,
+            "Verdi": "",
+            "Beskrivelse": param_desc
+        })
+        for value in param["values"]:
+            value_name = value["value_name"].strip()
+            value_desc = value["value_description"].strip()
+            descriptions_data.append({
+                "Parameter": "",
+                "Verdi": value_name,
+                "Beskrivelse": value_desc
+            })
+    descriptions_df = pd.DataFrame(descriptions_data)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         params_and_values_df.to_excel(writer, index=False, sheet_name='Parametere og verdier')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
+        descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
     excel_data = output.getvalue()
     
     st.header("Lagre analyse")

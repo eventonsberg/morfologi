@@ -2,6 +2,7 @@ import streamlit as st
 from params_and_values import params_and_values
 from inconsistent_combinations import inconsistent_combinations
 from possible_combinations import possible_combinations
+from descriptions import descriptions
 from helpers import get_possible_combinations
 from export_to_excel import export_to_excel
 from import_from_excel import import_from_excel
@@ -12,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
     layout="wide",
     menu_items={
-        "Report a bug": "mailto:Even-Kristian.Tonsberg@ffi.no; Torgeir.Aambo@ffi.no",
+        "Report a bug": "mailto:evton@ffi.no; torgeir.aambo@ffi.no",
         "About": """
             Dette morfologi-verktøyet er utviklet av Even K. Tønsberg og Torgeir Aambø ved Forsvarets forskningsinstitutt (FFI).  
               
@@ -23,7 +24,7 @@ st.set_page_config(
 )
 
 if "params" not in st.session_state:
-    # params: list of dicts: {param_id, param_name, values: [{value_id, value_name}, ...]}
+    # params: list of dicts: {param_id, param_name, param_description, values: [{value_id, value_name, value_description}, ...]}
     st.session_state.params = []
 if "n_combinations" not in st.session_state:
     # n_combinations: [possible_combinations, prev_possible_combinations]
@@ -53,7 +54,7 @@ title_row.metric(
     delta=st.session_state.n_combinations[0] - st.session_state.n_combinations[1],
 )
 
-tab1, tab2, tab3 = st.tabs(["Parametere og verdier", "Inkonsistente kombinasjoner", "Mulige kombinasjoner"])
+tab1, tab2, tab3, tab4 = st.tabs(["Parametere og verdier", "Inkonsistente kombinasjoner", "Mulige kombinasjoner", "Beskrivelser"])
 
 with tab1:
     params_and_values()
@@ -64,13 +65,16 @@ with tab2:
 with tab3:
     possible_combinations_df = possible_combinations()
 
+with tab4:
+    descriptions()
+
 
 with st.sidebar:
     export_to_excel(inconsistent_combinations_df, possible_combinations_df)
     st.divider()
     import_from_excel()
     st.divider()
-    st.markdown(
+    st.caption(
         """
         TODO:
         - Fjerne tilhørende inkonsistente kombinasjoner ved sletting av parametere og verdier.

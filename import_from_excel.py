@@ -2,7 +2,27 @@ import streamlit as st
 import pandas as pd
 from uuid import uuid4
 
-def transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df):
+def transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df):
+    param_descriptions = {}
+    value_descriptions_by_param = {}
+    current_param = None
+    for _, row in descriptions_df.iterrows():
+        raw_param = row.get("Parameter", "")
+        raw_value = row.get("Verdi", "")
+        raw_description = row.get("Beskrivelse", "")
+
+        param_name = "" if pd.isna(raw_param) else str(raw_param).strip()
+        value_name = "" if pd.isna(raw_value) else str(raw_value).strip()
+        description = "" if pd.isna(raw_description) else str(raw_description).strip()
+
+        if param_name:
+            current_param = param_name
+            value_descriptions_by_param.setdefault(current_param, {})
+            param_descriptions[current_param] = description
+
+        if value_name and current_param:
+            value_descriptions_by_param.setdefault(current_param, {})[value_name] = description
+
     st.session_state.params = []
     param_name_to_id = {}
     value_name_to_id_by_param = {}
@@ -17,9 +37,18 @@ def transform_excel_data_to_session_state(params_and_values_df, inconsistent_com
         for value_name in values.dropna():
             value_id = str(uuid4())
             clean_value_name = str(value_name).strip()
-            value_list.append({"value_id": value_id, "value_name": clean_value_name})
+            value_list.append({
+                "value_id": value_id,
+                "value_name": clean_value_name,
+                "value_description": value_descriptions_by_param.get(clean_param_name, {}).get(clean_value_name, ""),
+            })
             value_name_to_id_by_param[param_id][clean_value_name] = value_id
-        st.session_state.params.append({"param_id": param_id, "param_name": clean_param_name, "values": value_list})
+        st.session_state.params.append({
+            "param_id": param_id,
+            "param_name": clean_param_name,
+            "param_description": param_descriptions.get(clean_param_name, ""),
+            "values": value_list,
+        })
 
     st.session_state.inconsistent_combinations = []
     for _, row in inconsistent_combinations_df.iterrows():
@@ -66,7 +95,8 @@ def import_from_excel():
             xls = pd.ExcelFile(uploaded_file, engine="openpyxl")
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
             inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
-            transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df)
+            descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
+            transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df)
             st.rerun()
         except Exception as e:
             st.error(f"Feil ved import av Excel-fil: {e}")

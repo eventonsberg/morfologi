@@ -33,7 +33,7 @@ def params_and_values():
                     if value_name_key not in st.session_state:
                         st.session_state[value_name_key] = value["value_name"]
                     new_value_name = vcol1.text_input(
-                        "Verdi",
+                        "Verdier",
                         key=value_name_key,
                         label_visibility="collapsed" if value_idx > 0 else "visible",
                     )
@@ -73,6 +73,7 @@ def params_and_values():
                                 new_value = {
                                     "value_id": str(uuid4()),
                                     "value_name": value_name,
+                                    "value_description": "",
                                 }
                                 st.session_state.params[param_idx]["values"].append(new_value)
                                 st.rerun()
@@ -101,6 +102,7 @@ def params_and_values():
                     new_param = {
                         "param_id": str(uuid4()),
                         "param_name": param_name,
+                        "param_description": "",
                         "values": [],
                     }
                     st.session_state.params.append(new_param)
