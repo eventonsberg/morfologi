@@ -1,5 +1,9 @@
 import streamlit as st
 from uuid import uuid4
+from helpers import (
+    remove_param_from_inconsistent_combinations,
+    remove_value_from_inconsistent_combinations,
+)
 
 def params_and_values():
     n_params = len(st.session_state.params)
@@ -21,7 +25,10 @@ def params_and_values():
                     type="tertiary",
                     key=f"delete_param_{param['param_id']}"
                 ):
-                    # TODO: Remove constraints involving this parameter
+                    st.session_state.inconsistent_combinations = remove_param_from_inconsistent_combinations(
+                        st.session_state.inconsistent_combinations,
+                        param["param_id"],
+                    )
                     st.session_state.params.pop(param_idx)
                     st.rerun()
         cols = st.columns(n_params)
@@ -43,7 +50,11 @@ def params_and_values():
                         type="tertiary",
                         key=f"delete_value_{param['param_id']}_{value['value_id']}"
                     ):
-                        # TODO: Remove constraints involving this value
+                        st.session_state.inconsistent_combinations = remove_value_from_inconsistent_combinations(
+                            st.session_state.inconsistent_combinations,
+                            param["param_id"],
+                            value["value_id"],
+                        )
                         st.session_state.params[param_idx]["values"].pop(value_idx)
                         st.rerun()
         st.divider()

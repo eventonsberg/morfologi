@@ -32,3 +32,54 @@ def get_possible_combinations(params, inconsistent_combinations=None):
         ):
             possible_combinations.append(combination_dict)
     return possible_combinations
+
+def remove_param_from_inconsistent_combinations(inconsistent_combinations, param_id):
+    cleaned_combinations = []
+    for combination in inconsistent_combinations:
+        combination_values = {
+            existing_param_id: list(value_ids)
+            for existing_param_id, value_ids in combination["combination_values"].items()
+            if existing_param_id != param_id
+        }
+
+        if len(combination_values) >= 2:
+            cleaned_combinations.append(
+                {
+                    "combination_id": combination["combination_id"],
+                    "combination_values": combination_values,
+                    "comment": combination.get("comment", ""),
+                }
+            )
+
+    return cleaned_combinations
+
+def remove_value_from_inconsistent_combinations(inconsistent_combinations, param_id, value_id):
+    cleaned_combinations = []
+    for combination in inconsistent_combinations:
+        combination_values = {
+            existing_param_id: list(value_ids)
+            for existing_param_id, value_ids in combination["combination_values"].items()
+        }
+
+        if param_id in combination_values:
+            remaining_value_ids = [
+                existing_value_id
+                for existing_value_id in combination_values[param_id]
+                if existing_value_id != value_id
+            ]
+            if remaining_value_ids:
+                combination_values[param_id] = remaining_value_ids
+            else:
+                combination_values.pop(param_id)
+
+        # Keep only meaningful inconsistent combinations.
+        if len(combination_values) >= 2:
+            cleaned_combinations.append(
+                {
+                    "combination_id": combination["combination_id"],
+                    "combination_values": combination_values,
+                    "comment": combination.get("comment", ""),
+                }
+            )
+
+    return cleaned_combinations

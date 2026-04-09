@@ -73,13 +73,3 @@ with st.sidebar:
     export_to_excel(inconsistent_combinations_df, possible_combinations_df)
     st.divider()
     import_from_excel()
-    st.divider()
-    st.caption(
-        """
-        TODO:
-        - Fjerne tilhørende inkonsistente kombinasjoner ved sletting av parametere og verdier.
-        - Gjøre det umulig å legge til inkonsistente kombinasjoner som er dekket av allerede registrerte inkonsistente kombinasjoner.
-        - Funksjonalitet for å definere klasser av kombinasjoner.
-        - Funksjonalitet for å legge til beskrivelser av parametere og verdier.
-        """
-    )
