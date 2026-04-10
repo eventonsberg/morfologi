@@ -3,6 +3,7 @@ from params_and_values import params_and_values
 from inconsistent_combinations import inconsistent_combinations
 from possible_combinations import possible_combinations
 from descriptions import descriptions
+from classification import classification
 from helpers import get_possible_combinations
 from export_to_excel import export_to_excel
 from import_from_excel import import_from_excel
@@ -35,6 +36,9 @@ if "inconsistent_combinations" not in st.session_state:
 if "possible_combinations" not in st.session_state:
     # possible_combinations: list of dicts: {param_id: value_id, ...}
     st.session_state.possible_combinations = []
+if "classification_rules" not in st.session_state:
+    # classification_rules: list of dicts: {classification_rule_id, combination_values: {param_id: [value_id, ...]}, classification}
+    st.session_state.classification_rules = []
 
 st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,
@@ -54,7 +58,13 @@ title_row.metric(
     delta=st.session_state.n_combinations[0] - st.session_state.n_combinations[1],
 )
 
-tab1, tab2, tab3, tab4 = st.tabs(["Parametere og verdier", "Inkonsistente kombinasjoner", "Mulige kombinasjoner", "Beskrivelser"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Parametere og verdier",
+    "Inkonsistente kombinasjoner",
+    "Mulige kombinasjoner",
+    "Beskrivelser",
+    "Klassifisering"
+])
 
 with tab1:
     params_and_values()
@@ -68,6 +78,8 @@ with tab3:
 with tab4:
     descriptions()
 
+with tab5:
+    classification()
 
 with st.sidebar:
     export_to_excel(inconsistent_combinations_df, possible_combinations_df)
