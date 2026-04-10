@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from uuid import uuid4
 
-def transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df):
+def transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df, classification_rules_df):
     param_descriptions = {}
     value_descriptions_by_param = {}
     current_param = None
@@ -74,7 +74,42 @@ def transform_excel_data_to_session_state(params_and_values_df, inconsistent_com
         comment = row.get("Kommentar", "")
         if pd.isna(comment):
             comment = ""
-        st.session_state.inconsistent_combinations.append({"combination_id": combination_id, "combination_values": combination_values, "comment": comment})
+        st.session_state.inconsistent_combinations.append({
+            "combination_id": combination_id,
+            "combination_values": combination_values,
+            "comment": comment,
+        })
+
+    st.session_state.classification_rules = []
+    for _, row in classification_rules_df.iterrows():
+        rule_id = str(uuid4())
+        combination_values = {}
+        for col in classification_rules_df.columns:
+            if col != "Klassifisering":
+                param_id = param_name_to_id.get(str(col).strip())
+                if not param_id:
+                    continue
+                cell_value = row[col]
+                if pd.notna(cell_value):
+                    value_ids = []
+                    for value_name in str(cell_value).split(";"):
+                        clean_value_name = value_name.strip()
+                        if not clean_value_name:
+                            continue
+                        value_id = value_name_to_id_by_param[param_id].get(clean_value_name)
+                        if value_id:
+                            value_ids.append(value_id)
+                    if value_ids:
+                        combination_values[param_id] = value_ids
+        classification = row.get("Klassifisering", "")
+        if pd.isna(classification):
+            classification = ""
+        st.session_state.classification_rules.append({
+            "classification_rule_id": rule_id,
+            "combination_values": combination_values,
+            "classification": classification,
+        })
+
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -96,7 +131,13 @@ def import_from_excel():
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
             inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
             descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
-            transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df)
+            classification_rules_df = pd.read_excel(xls, sheet_name='Klassifisering', engine="openpyxl")
+            transform_excel_data_to_session_state(
+                params_and_values_df,
+                inconsistent_combinations_df,
+                descriptions_df,
+                classification_rules_df
+            )
             st.rerun()
         except Exception as e:
             st.error(f"Feil ved import av Excel-fil: {e}")

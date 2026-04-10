@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
+def export_to_excel(inconsistent_combinations_df, possible_combinations_df, classification_rules_df):
     params_and_values_data = {}
     for param in st.session_state.params:
         param_name = param["param_name"].strip()
@@ -38,12 +38,22 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
             })
     descriptions_df = pd.DataFrame(descriptions_data)
 
+    clean_classification_rules_df = classification_rules_df.copy()
+    if not clean_classification_rules_df.empty:
+        clean_classification_rules_df.drop(columns=["_rule_id"], inplace=True)
+        param_columns = [col for col in clean_classification_rules_df.columns if col != "Klassifisering"]
+        for col in param_columns:
+            clean_classification_rules_df[col] = clean_classification_rules_df[col].apply(
+                lambda value: "; ".join(value) if isinstance(value, list) else value
+            )
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         params_and_values_df.to_excel(writer, index=False, sheet_name='Parametere og verdier')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
         descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
+        clean_classification_rules_df.to_excel(writer, index=False, sheet_name='Klassifisering')
     excel_data = output.getvalue()
     
     st.header("Lagre analyse")

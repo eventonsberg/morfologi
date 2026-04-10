@@ -79,9 +79,9 @@ with tab4:
     descriptions()
 
 with tab5:
-    classification()
+    classification_rules_df = classification()
 
 with st.sidebar:
-    export_to_excel(inconsistent_combinations_df, possible_combinations_df)
+    export_to_excel(inconsistent_combinations_df, possible_combinations_df, classification_rules_df)
     st.divider()
     import_from_excel()
