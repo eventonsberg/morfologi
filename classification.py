@@ -34,8 +34,8 @@ def classification():
                         for param_id, selected_value_ids in value_selectors.items()
                         if selected_value_ids
                     }
-                    if len(combination_values) < 2:
-                        st.warning("Minst én verdi fra to ulike parametere må velges.")
+                    if len(combination_values) < 1:
+                        st.warning("Minst én verdi må velges.")
                     elif not classification.strip():
                         st.warning("En klassifisering må angis.")
                     else:

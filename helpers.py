@@ -41,16 +41,12 @@ def remove_param_from_inconsistent_combinations(inconsistent_combinations, param
             for existing_param_id, value_ids in combination["combination_values"].items()
             if existing_param_id != param_id
         }
-
         if len(combination_values) >= 2:
-            cleaned_combinations.append(
-                {
-                    "combination_id": combination["combination_id"],
-                    "combination_values": combination_values,
-                    "comment": combination.get("comment", ""),
-                }
-            )
-
+            cleaned_combinations.append({
+                "combination_id": combination["combination_id"],
+                "combination_values": combination_values,
+                "comment": combination.get("comment", ""),
+            })
     return cleaned_combinations
 
 def remove_value_from_inconsistent_combinations(inconsistent_combinations, param_id, value_id):
@@ -60,7 +56,6 @@ def remove_value_from_inconsistent_combinations(inconsistent_combinations, param
             existing_param_id: list(value_ids)
             for existing_param_id, value_ids in combination["combination_values"].items()
         }
-
         if param_id in combination_values:
             remaining_value_ids = [
                 existing_value_id
@@ -71,15 +66,54 @@ def remove_value_from_inconsistent_combinations(inconsistent_combinations, param
                 combination_values[param_id] = remaining_value_ids
             else:
                 combination_values.pop(param_id)
-
-        # Keep only meaningful inconsistent combinations.
+        # Keep only meaningful inconsistent combinations
         if len(combination_values) >= 2:
-            cleaned_combinations.append(
-                {
-                    "combination_id": combination["combination_id"],
-                    "combination_values": combination_values,
-                    "comment": combination.get("comment", ""),
-                }
-            )
-
+            cleaned_combinations.append({
+                "combination_id": combination["combination_id"],
+                "combination_values": combination_values,
+                "comment": combination.get("comment", ""),
+            })
     return cleaned_combinations
+
+def remove_param_from_classification_rules(classification_rules, param_id):
+    cleaned_rules = []
+    for rule in classification_rules:
+        combination_values = {
+            existing_param_id: list(value_ids)
+            for existing_param_id, value_ids in rule["combination_values"].items()
+            if existing_param_id != param_id
+        }
+
+        if len(combination_values) >= 1:
+            cleaned_rules.append({
+                "classification_rule_id": rule["classification_rule_id"],
+                "combination_values": combination_values,
+                "classification": rule.get("classification", ""),
+            })
+    return cleaned_rules
+
+def remove_value_from_classification_rules(classification_rules, param_id, value_id):
+    cleaned_rules = []
+    for rule in classification_rules:
+        combination_values = {
+            existing_param_id: list(value_ids)
+            for existing_param_id, value_ids in rule["combination_values"].items()
+        }
+        if param_id in combination_values:
+            remaining_value_ids = [
+                existing_value_id
+                for existing_value_id in combination_values[param_id]
+                if existing_value_id != value_id
+            ]
+            if remaining_value_ids:
+                combination_values[param_id] = remaining_value_ids
+            else:
+                combination_values.pop(param_id)
+        # Keep only meaningful classification rules
+        if len(combination_values) >= 1:
+            cleaned_rules.append({
+                "classification_rule_id": rule["classification_rule_id"],
+                "combination_values": combination_values,
+                "classification": rule.get("classification", ""),
+            })
+    return cleaned_rules
