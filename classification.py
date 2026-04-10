@@ -2,6 +2,7 @@ import streamlit as st
 from helpers import get_param_name_by_id, get_value_name_by_id
 from uuid import uuid4
 import pandas as pd
+from classification_calculation import display_combination_classifications
 
 def classification():
     with st.expander("Definer regler for klassifisering av kombinasjoner"):
@@ -51,7 +52,7 @@ def classification():
         st.subheader("Registrerte klassifiseringsregler")
         if not st.session_state.classification_rules:
             st.info("Ingen klassifiseringsregler registrert.")
-            return pd.DataFrame()
+            return_table = pd.DataFrame()
         else:
             param_name_by_id = get_param_name_by_id(st.session_state.params)
             value_name_by_id = get_value_name_by_id(st.session_state.params)
@@ -98,4 +99,9 @@ def classification():
                     if rule["classification_rule_id"] in remaining_ids
                 ]
                 st.rerun()
-            return table_df
+            return_table = table_df
+        
+    st.subheader("Kombinasjonsklasser")
+    display_combination_classifications()
+
+    return return_table

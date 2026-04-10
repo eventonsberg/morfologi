@@ -39,6 +39,9 @@ if "possible_combinations" not in st.session_state:
 if "classification_rules" not in st.session_state:
     # classification_rules: list of dicts: {classification_rule_id, combination_values: {param_id: [value_id, ...]}, classification}
     st.session_state.classification_rules = []
+if "combination_classes" not in st.session_state:
+    # combination_classes: list of dicts: {combination_class_id, combination_class_name, classification_rule_ids: [classification_rule_id, ...]}
+    st.session_state.combination_classes = []
 
 st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,

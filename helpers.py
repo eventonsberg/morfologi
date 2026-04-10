@@ -117,3 +117,6 @@ def remove_value_from_classification_rules(classification_rules, param_id, value
                 "classification": rule.get("classification", ""),
             })
     return cleaned_rules
+
+def get_classification_by_rule_id(classification_rules):
+    return {rule["classification_rule_id"]: rule["classification"] for rule in classification_rules}
