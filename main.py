@@ -5,6 +5,7 @@ from possible_combinations import possible_combinations
 from descriptions import descriptions
 from classification import classification
 from helpers import get_possible_combinations
+from classification_calculation import update_possible_combinations_with_combination_class_ids
 from export_to_excel import export_to_excel
 from import_from_excel import import_from_excel
 
@@ -34,7 +35,7 @@ if "inconsistent_combinations" not in st.session_state:
     # inconsistent_combinations: list of dicts: {combination_id, combination_values: {param_id: [value_id, ...]}, comment}
     st.session_state.inconsistent_combinations = []
 if "possible_combinations" not in st.session_state:
-    # possible_combinations: list of dicts: {param_id: value_id, ...}
+    # possible_combinations: list of dicts: {combination_values: {param_id: value_id, ...}, combination_class_ids: [combination_class_id, ...]}
     st.session_state.possible_combinations = []
 if "classification_rules" not in st.session_state:
     # classification_rules: list of dicts: {classification_rule_id, classification_rule_name, combination_values: {param_id: [value_id, ...]}}
@@ -47,6 +48,7 @@ st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,
     st.session_state.inconsistent_combinations,
 )
+update_possible_combinations_with_combination_class_ids()
 
 current_n_combinations = len(st.session_state.possible_combinations)
 if current_n_combinations != st.session_state.n_combinations[0]:

@@ -19,18 +19,21 @@ def get_possible_combinations(params, inconsistent_combinations=None):
     inconsistent_combinations = inconsistent_combinations or []
     possible_combinations = []
     for combination in product(*values_by_param):
-        combination_dict = {
+        combination_values = {
             param["param_id"]: value["value_id"]
             for param, value in zip(params, combination)
         }
         if not any(
             all(
-                combination_dict.get(param_id) in value_ids
+                combination_values.get(param_id) in value_ids
                 for param_id, value_ids in inconsistent_combination["combination_values"].items()
             )
             for inconsistent_combination in inconsistent_combinations
         ):
-            possible_combinations.append(combination_dict)
+            possible_combinations.append({
+                "combination_values": combination_values,
+                "combination_class_ids": [],
+            })
     return possible_combinations
 
 def remove_param_from_inconsistent_combinations(inconsistent_combinations, param_id):
@@ -123,3 +126,6 @@ def get_classification_rule_name_by_rule_id(classification_rules):
 
 def get_combination_values_by_classification_rule_id(classification_rules):
     return {rule["classification_rule_id"]: rule["combination_values"] for rule in classification_rules}
+
+def get_combination_class_name_by_combination_class_id(combination_classes):
+    return {combination_class["combination_class_id"]: combination_class["combination_class_name"] for combination_class in combination_classes}
