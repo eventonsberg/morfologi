@@ -39,6 +39,12 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df, clas
                 lambda value: "; ".join(value) if isinstance(value, list) else value
             )
 
+    clean_possible_combinations_df = possible_combinations_df.copy()
+    if not clean_possible_combinations_df.empty:
+        clean_possible_combinations_df["Kombinasjonsklasser"] = clean_possible_combinations_df["Kombinasjonsklasser"].apply(
+            lambda classes: "; ".join(classes) if isinstance(classes, list) else classes
+        )
+
     clean_classification_rules_df = classification_rules_df.copy()
     if not clean_classification_rules_df.empty:
         clean_classification_rules_df.drop(columns=["_rule_id"], inplace=True)
@@ -71,7 +77,7 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df, clas
         params_and_values_df.to_excel(writer, index=False, sheet_name='Parametere og verdier')
         descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
-        possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
+        clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
         clean_classification_rules_df.to_excel(writer, index=False, sheet_name='Klassifiseringsregler')
         combination_classes_df.to_excel(writer, index=False, sheet_name='Kombinasjonsklasser')
     excel_data = output.getvalue()
