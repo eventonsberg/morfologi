@@ -63,9 +63,9 @@ title_row.metric(
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Parametere og verdier",
+    "Beskrivelser",
     "Inkonsistente kombinasjoner",
     "Mulige kombinasjoner",
-    "Beskrivelser",
     "Klassifisering"
 ])
 
@@ -73,13 +73,13 @@ with tab1:
     params_and_values()
 
 with tab2:
-    inconsistent_combinations_df = inconsistent_combinations()
+    descriptions()
 
 with tab3:
-    possible_combinations_df = possible_combinations()
+    inconsistent_combinations_df = inconsistent_combinations()
 
 with tab4:
-    descriptions()
+    possible_combinations_df = possible_combinations()
 
 with tab5:
     classification_rules_df = classification()

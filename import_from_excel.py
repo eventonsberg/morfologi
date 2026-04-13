@@ -4,8 +4,8 @@ from uuid import uuid4
 
 def transform_excel_data_to_session_state(
     params_and_values_df,
-    inconsistent_combinations_df,
     descriptions_df,
+    inconsistent_combinations_df,
     classification_rules_df,
     combination_classes_df
 ):
@@ -160,14 +160,14 @@ def import_from_excel():
         try:
             xls = pd.ExcelFile(uploaded_file, engine="openpyxl")
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
-            inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
             descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
+            inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
             classification_rules_df = pd.read_excel(xls, sheet_name='Klassifiseringsregler', engine="openpyxl")
             combination_classes_df = pd.read_excel(xls, sheet_name='Kombinasjonsklasser', engine="openpyxl")
             transform_excel_data_to_session_state(
                 params_and_values_df,
-                inconsistent_combinations_df,
                 descriptions_df,
+                inconsistent_combinations_df,
                 classification_rules_df,
                 combination_classes_df
             )
