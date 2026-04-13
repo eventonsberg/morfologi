@@ -2,7 +2,7 @@ import streamlit as st
 from helpers import get_param_name_by_id, get_value_name_by_id
 from uuid import uuid4
 import pandas as pd
-from classification_calculation import display_combination_classifications
+from classification_calculation import display_combination_classes
 
 def classification():
     with st.expander("Definer regler for klassifisering av kombinasjoner"):
@@ -102,6 +102,6 @@ def classification():
             return_table = table_df
         
     st.subheader("Kombinasjonsklasser")
-    display_combination_classifications()
+    display_combination_classes()
 
     return return_table
