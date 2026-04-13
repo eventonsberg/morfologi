@@ -116,10 +116,10 @@ def display_combination_classes():
             col2.markdown(f":blue[**{number_of_combinations} kombinasjon{'er' if number_of_combinations != 1 else ''}**]")
             
             st.dataframe(combination_class_df)
-            st.caption(
-                "Basert på følgende klassifiseringsregler: " +
-                " + ".join(
-                    get_classification_rule_name_by_rule_id(st.session_state.classification_rules)[rule_id]
+            st.markdown(
+                ":gray[:small[Basert på følgende klassifiseringsregler: ]]" +
+                "".join(
+                    f" :gray-badge[{get_classification_rule_name_by_rule_id(st.session_state.classification_rules)[rule_id]}]"
                     for rule_id in classification_rule_ids
                 )
             )
