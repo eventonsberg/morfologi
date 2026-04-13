@@ -11,6 +11,11 @@ def classification():
             st.info("Ingen mulige kombinasjoner.")
         else:
             with st.form("classification_rules_form", clear_on_submit=True, border=False):
+                classification_rule_name = st.text_input(
+                    "**Klassifiseringsregel**",
+                    placeholder="Angi navn på klassifiseringsregel",
+                    key="classification_input",
+                )
                 value_selectors = {}
                 for param in st.session_state.params:
                     values = param["values"]
@@ -24,11 +29,6 @@ def classification():
                         key=f"rules_value_selector_{param['param_id']}",
                     )
                     value_selectors[param["param_id"]] = value_selector
-                classification = st.text_input(
-                    "**Klassifisering**",
-                    placeholder="Angi klassifisering",
-                    key="classification_input",
-                )
                 submit_classification_rule = st.form_submit_button("Registrer klassifiseringsregel")
                 if submit_classification_rule:
                     combination_values = {
@@ -38,14 +38,19 @@ def classification():
                     }
                     if len(combination_values) < 1:
                         st.warning("Minst én verdi må velges.")
-                    elif not classification.strip():
-                        st.warning("En klassifisering må angis.")
+                    elif not classification_rule_name.strip():
+                        st.warning("Klassifiseringsregelen må navngis.")
+                    elif any(
+                        rule["classification_rule_name"].strip() == classification_rule_name.strip()
+                        for rule in st.session_state.classification_rules
+                    ):
+                        st.warning("Klassifiseringsregelen må ha et unikt navn.")
                     else:
                         st.session_state.classification_rules.append(
                             {
                                 "classification_rule_id": str(uuid4()),
+                                "classification_rule_name": classification_rule_name.strip(),
                                 "combination_values": combination_values,
-                                "classification": classification.strip(),
                             }
                         )
                         st.rerun()
@@ -74,16 +79,16 @@ def classification():
                     for value_id in value_ids
                 ]
 
-            row["Klassifisering"] = classification_rule.get("classification", "")
+            row["Klassifiseringsregel"] = classification_rule.get("classification_rule_name", "")
             table_rows.append(row)
-        editor_columns = ["_rule_id", *param_columns, "Klassifisering"]
+        editor_columns = ["_rule_id", "Klassifiseringsregel", *param_columns]
         table_df = pd.DataFrame(table_rows, columns=editor_columns)
         edited_table_df = st.data_editor(
             table_df,
             hide_index=True,
             num_rows="delete",
             column_config={"_rule_id": None},
-            disabled=param_columns + ["Klassifisering"],
+            disabled=["Klassifiseringsregel"] + param_columns,
             key="classification_rules_editor",
         )
         st.caption("For å slette en klassifiseringsregel, marker raden i venstre kolonne og trykk *Delete*.")

@@ -88,7 +88,7 @@ def remove_param_from_classification_rules(classification_rules, param_id):
             cleaned_rules.append({
                 "classification_rule_id": rule["classification_rule_id"],
                 "combination_values": combination_values,
-                "classification": rule.get("classification", ""),
+                "classification_rule_name": rule.get("classification_rule_name", ""),
             })
     return cleaned_rules
 
@@ -114,12 +114,12 @@ def remove_value_from_classification_rules(classification_rules, param_id, value
             cleaned_rules.append({
                 "classification_rule_id": rule["classification_rule_id"],
                 "combination_values": combination_values,
-                "classification": rule.get("classification", ""),
+                "classification_rule_name": rule.get("classification_rule_name", ""),
             })
     return cleaned_rules
 
-def get_classification_by_rule_id(classification_rules):
-    return {rule["classification_rule_id"]: rule["classification"] for rule in classification_rules}
+def get_classification_rule_name_by_rule_id(classification_rules):
+    return {rule["classification_rule_id"]: rule["classification_rule_name"] for rule in classification_rules}
 
 def get_combination_values_by_classification_rule_id(classification_rules):
     return {rule["classification_rule_id"]: rule["combination_values"] for rule in classification_rules}

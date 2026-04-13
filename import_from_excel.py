@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 from uuid import uuid4
 
-def transform_excel_data_to_session_state(params_and_values_df, inconsistent_combinations_df, descriptions_df, classification_rules_df):
+def transform_excel_data_to_session_state(
+    params_and_values_df,
+    inconsistent_combinations_df,
+    descriptions_df,
+    classification_rules_df,
+    combination_classes_df
+):
     param_descriptions = {}
     value_descriptions_by_param = {}
     current_param = None
@@ -81,11 +87,12 @@ def transform_excel_data_to_session_state(params_and_values_df, inconsistent_com
         })
 
     st.session_state.classification_rules = []
+    classification_rule_name_to_id = {}
     for _, row in classification_rules_df.iterrows():
         rule_id = str(uuid4())
         combination_values = {}
         for col in classification_rules_df.columns:
-            if col != "Klassifisering":
+            if col != "Klassifiseringsregel":
                 param_id = param_name_to_id.get(str(col).strip())
                 if not param_id:
                     continue
@@ -101,15 +108,39 @@ def transform_excel_data_to_session_state(params_and_values_df, inconsistent_com
                             value_ids.append(value_id)
                     if value_ids:
                         combination_values[param_id] = value_ids
-        classification = row.get("Klassifisering", "")
-        if pd.isna(classification):
-            classification = ""
+        classification_rule_name = row.get("Klassifiseringsregel", "")
+        if pd.isna(classification_rule_name):
+            classification_rule_name = ""
         st.session_state.classification_rules.append({
             "classification_rule_id": rule_id,
+            "classification_rule_name": classification_rule_name,
             "combination_values": combination_values,
-            "classification": classification,
         })
+        classification_rule_name_to_id[classification_rule_name] = rule_id
 
+    st.session_state.combination_classes = []
+    for _, row in combination_classes_df.iterrows():
+        class_id = str(uuid4())
+        class_name = row.get("Kombinasjonsklasse", "")
+        if pd.isna(class_name):
+            class_name = ""
+        classification_rule_names_cell = row.get("Klassifiseringsregler", "")
+        classification_rule_ids = []
+        if pd.notna(classification_rule_names_cell):
+            for rule_name in str(classification_rule_names_cell).split(";"):
+                clean_rule_name = rule_name.strip()
+                rule_id = classification_rule_name_to_id.get(clean_rule_name)
+                if rule_id:
+                    classification_rule_ids.append(rule_id)
+        number_of_combinations = row.get("Antall kombinasjoner", 0)
+        if pd.isna(number_of_combinations):
+            number_of_combinations = 0
+        st.session_state.combination_classes.append({
+            "combination_class_id": class_id,
+            "combination_class_name": class_name,
+            "classification_rule_ids": classification_rule_ids,
+            "number_of_combinations": number_of_combinations,
+        })
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -131,12 +162,14 @@ def import_from_excel():
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
             inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
             descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
-            classification_rules_df = pd.read_excel(xls, sheet_name='Klassifisering', engine="openpyxl")
+            classification_rules_df = pd.read_excel(xls, sheet_name='Klassifiseringsregler', engine="openpyxl")
+            combination_classes_df = pd.read_excel(xls, sheet_name='Kombinasjonsklasser', engine="openpyxl")
             transform_excel_data_to_session_state(
                 params_and_values_df,
                 inconsistent_combinations_df,
                 descriptions_df,
-                classification_rules_df
+                classification_rules_df,
+                combination_classes_df
             )
             st.rerun()
         except Exception as e:
