@@ -3,8 +3,6 @@ from uuid import uuid4
 from helpers import (
     remove_param_from_inconsistent_combinations,
     remove_value_from_inconsistent_combinations,
-    remove_param_from_classification_rules,
-    remove_value_from_classification_rules,
 )
 
 def params_and_values():
@@ -31,10 +29,6 @@ def params_and_values():
                         st.session_state.inconsistent_combinations,
                         param["param_id"],
                     )
-                    st.session_state.classification_rules = remove_param_from_classification_rules(
-                        st.session_state.classification_rules,
-                        param["param_id"],
-                    )
                     st.session_state.params.pop(param_idx)
                     st.rerun()
         cols = st.columns(n_params)
@@ -58,11 +52,6 @@ def params_and_values():
                     ):
                         st.session_state.inconsistent_combinations = remove_value_from_inconsistent_combinations(
                             st.session_state.inconsistent_combinations,
-                            param["param_id"],
-                            value["value_id"],
-                        )
-                        st.session_state.classification_rules = remove_value_from_classification_rules(
-                            st.session_state.classification_rules,
                             param["param_id"],
                             value["value_id"],
                         )

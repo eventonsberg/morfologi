@@ -6,8 +6,7 @@ def transform_excel_data_to_session_state(
     params_and_values_df,
     descriptions_df,
     inconsistent_combinations_df,
-    classification_rules_df,
-    combination_classes_df
+    #combination_classes_df
 ):
     param_descriptions = {}
     value_descriptions_by_param = {}
@@ -86,39 +85,8 @@ def transform_excel_data_to_session_state(
             "comment": comment,
         })
 
-    st.session_state.classification_rules = []
-    classification_rule_name_to_id = {}
-    for _, row in classification_rules_df.iterrows():
-        rule_id = str(uuid4())
-        combination_values = {}
-        for col in classification_rules_df.columns:
-            if col != "Klassifiseringsregel":
-                param_id = param_name_to_id.get(str(col).strip())
-                if not param_id:
-                    continue
-                cell_value = row[col]
-                if pd.notna(cell_value):
-                    value_ids = []
-                    for value_name in str(cell_value).split(";"):
-                        clean_value_name = value_name.strip()
-                        if not clean_value_name:
-                            continue
-                        value_id = value_name_to_id_by_param[param_id].get(clean_value_name)
-                        if value_id:
-                            value_ids.append(value_id)
-                    if value_ids:
-                        combination_values[param_id] = value_ids
-        classification_rule_name = row.get("Klassifiseringsregel", "")
-        if pd.isna(classification_rule_name):
-            classification_rule_name = ""
-        st.session_state.classification_rules.append({
-            "classification_rule_id": rule_id,
-            "classification_rule_name": classification_rule_name,
-            "combination_values": combination_values,
-        })
-        classification_rule_name_to_id[classification_rule_name] = rule_id
-
-    st.session_state.combination_classes = []
+    # TODO: Update this when combination class logic is implemented
+    '''st.session_state.combination_classes = []
     for _, row in combination_classes_df.iterrows():
         class_id = str(uuid4())
         class_name = row.get("Kombinasjonsklasse", "")
@@ -140,7 +108,7 @@ def transform_excel_data_to_session_state(
             "combination_class_name": class_name,
             "classification_rule_ids": classification_rule_ids,
             "number_of_combinations": number_of_combinations,
-        })
+        })'''
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -162,14 +130,12 @@ def import_from_excel():
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
             descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
             inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
-            classification_rules_df = pd.read_excel(xls, sheet_name='Klassifiseringsregler', engine="openpyxl")
-            combination_classes_df = pd.read_excel(xls, sheet_name='Kombinasjonsklasser', engine="openpyxl")
+            #combination_classes_df = pd.read_excel(xls, sheet_name='Kombinasjonsklasser', engine="openpyxl")
             transform_excel_data_to_session_state(
                 params_and_values_df,
                 descriptions_df,
                 inconsistent_combinations_df,
-                classification_rules_df,
-                combination_classes_df
+                #combination_classes_df
             )
             st.rerun()
         except Exception as e:

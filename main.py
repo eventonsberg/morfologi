@@ -5,7 +5,6 @@ from possible_combinations import possible_combinations
 from descriptions import descriptions
 from classification import classification
 from helpers import get_possible_combinations
-from classification_calculation import update_possible_combinations_with_combination_class_ids
 from export_to_excel import export_to_excel
 from import_from_excel import import_from_excel
 
@@ -37,18 +36,16 @@ if "inconsistent_combinations" not in st.session_state:
 if "possible_combinations" not in st.session_state:
     # possible_combinations: list of dicts: {combination_values: {param_id: value_id, ...}, combination_class_ids: [combination_class_id, ...]}
     st.session_state.possible_combinations = []
-if "classification_rules" not in st.session_state:
-    # classification_rules: list of dicts: {classification_rule_id, classification_rule_name, combination_values: {param_id: [value_id, ...]}}
-    st.session_state.classification_rules = []
 if "combination_classes" not in st.session_state:
-    # combination_classes: list of dicts: {combination_class_id, combination_class_name, classification_rule_ids: [classification_rule_id, ...], number_of_combinations}
+    # combination_classes: list of dicts: {combination_class_id, combination_class_name, attributes: {param_id: value_id, ...}, number_of_combinations}
     st.session_state.combination_classes = []
 
 st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,
     st.session_state.inconsistent_combinations,
 )
-update_possible_combinations_with_combination_class_ids()
+# TODO: Update this when combination class logic is implemented
+# update_possible_combinations_with_combination_class_ids()
 
 current_n_combinations = len(st.session_state.possible_combinations)
 if current_n_combinations != st.session_state.n_combinations[0]:
@@ -84,9 +81,9 @@ with tab4:
     possible_combinations_df = possible_combinations()
 
 with tab5:
-    classification_rules_df = classification()
+    classification()
 
 with st.sidebar:
-    export_to_excel(inconsistent_combinations_df, possible_combinations_df, classification_rules_df)
+    export_to_excel(inconsistent_combinations_df, possible_combinations_df)
     st.divider()
     import_from_excel()
