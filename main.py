@@ -4,7 +4,10 @@ from inconsistent_combinations import inconsistent_combinations
 from possible_combinations import possible_combinations
 from descriptions import descriptions
 from classification import classification
-from helpers import get_possible_combinations
+from helpers import (
+    get_possible_combinations,
+    update_possible_combinations_with_combination_class_names,
+)
 from export_to_excel import export_to_excel
 from import_from_excel import import_from_excel
 
@@ -34,8 +37,14 @@ if "inconsistent_combinations" not in st.session_state:
     # inconsistent_combinations: list of dicts: {combination_id, combination_values: {param_id: [value_id, ...]}, comment}
     st.session_state.inconsistent_combinations = []
 if "possible_combinations" not in st.session_state:
-    # possible_combinations: list of dicts: {combination_values: {param_id: value_id, ...}, combination_class_ids: [combination_class_id, ...]}
+    # possible_combinations: list of dicts: {combination_number, combination_values: {param_id: value_id, ...}, combination_class_names: [combination_class_name, ...]}
     st.session_state.possible_combinations = []
+if "concepts" not in st.session_state:
+    # concepts: dict of {concept_intent_tuple: {"name": concept_name, "extent": set}}
+    st.session_state.concepts = {}
+if "selected_concept_intents" not in st.session_state:
+    # selected_concept_intents: set of concept_intent_tuple
+    st.session_state.selected_concept_intents = set()
 if "combination_classes" not in st.session_state:
     # combination_classes: list of dicts: {combination_class_id, combination_class_name, attributes: {param_id: value_id, ...}, number_of_combinations}
     st.session_state.combination_classes = []
@@ -44,8 +53,11 @@ st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,
     st.session_state.inconsistent_combinations,
 )
-# TODO: Update this when combination class logic is implemented
-# update_possible_combinations_with_combination_class_ids()
+update_possible_combinations_with_combination_class_names(
+    st.session_state.possible_combinations,
+    st.session_state.concepts,
+    st.session_state.selected_concept_intents,
+)
 
 current_n_combinations = len(st.session_state.possible_combinations)
 if current_n_combinations != st.session_state.n_combinations[0]:

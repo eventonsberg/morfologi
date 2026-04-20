@@ -19,7 +19,8 @@ def params_and_values():
                     "Parameter",
                     key=param_name_key,
                 )
-                st.session_state.params[param_idx]["param_name"] = new_param_name
+                if new_param_name.strip():
+                    st.session_state.params[param_idx]["param_name"] = new_param_name.strip()
                 if pcol2.button(
                     ":material/delete:",
                     type="tertiary",

@@ -18,6 +18,7 @@ def get_possible_combinations(params, inconsistent_combinations=None):
         return []
     inconsistent_combinations = inconsistent_combinations or []
     possible_combinations = []
+    combination_number = 1
     for combination in product(*values_by_param):
         combination_values = {
             param["param_id"]: value["value_id"]
@@ -31,9 +32,11 @@ def get_possible_combinations(params, inconsistent_combinations=None):
             for inconsistent_combination in inconsistent_combinations
         ):
             possible_combinations.append({
+                "combination_number": combination_number,
                 "combination_values": combination_values,
-                "combination_class_ids": [],
+                "combination_class_names": [],
             })
+            combination_number += 1
     return possible_combinations
 
 def remove_param_from_inconsistent_combinations(inconsistent_combinations, param_id):
@@ -78,5 +81,11 @@ def remove_value_from_inconsistent_combinations(inconsistent_combinations, param
             })
     return cleaned_combinations
 
-def get_combination_class_name_by_combination_class_id(combination_classes):
-    return {combination_class["combination_class_id"]: combination_class["combination_class_name"] for combination_class in combination_classes}
+def update_possible_combinations_with_combination_class_names(possible_combinations, concepts, selected_concept_intents):
+    for combination in possible_combinations:
+        combination_class_names = []
+        for concept_intent_tuple, concept in concepts.items():
+            extent = concept.get("extent", [])
+            if concept_intent_tuple in selected_concept_intents and combination["combination_number"] in extent:
+                combination_class_names.append(concept["name"])
+        combination["combination_class_names"] = combination_class_names
