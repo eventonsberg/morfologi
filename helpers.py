@@ -85,7 +85,7 @@ def update_possible_combinations_with_combination_class_names(possible_combinati
     for combination in possible_combinations:
         combination_class_names = []
         for concept_intent_tuple, concept in concepts.items():
-            extent = concept.get("extent", [])
-            if concept_intent_tuple in selected_concept_intents and combination["combination_number"] in extent:
+            extent = concept.get("extent", set())
+            if concept_intent_tuple in selected_concept_intents and frozenset(combination["combination_values"].items()) in extent:
                 combination_class_names.append(concept["name"])
         combination["combination_class_names"] = combination_class_names

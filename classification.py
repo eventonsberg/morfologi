@@ -11,7 +11,11 @@ from classification_calculation import (
     transform_edges_to_graphviz,
     generate_graphviz_legend
 )
-from helpers import get_param_name_by_id, get_value_name_by_id
+from helpers import (
+    get_param_name_by_id,
+    get_value_name_by_id,
+    update_possible_combinations_with_combination_class_names,
+)
 
 def classification():
     if st.session_state.n_combinations[0] == 0:
@@ -20,12 +24,13 @@ def classification():
     
     possible_combinations = st.session_state.possible_combinations
 
-    if True: #st.button("Oppdater klassifisering"):
+    update_classification = st.button("Oppdater klassifisering", type="primary")
+    if update_classification:
         configurations = {}
         for combination in possible_combinations:
             config = {f"{param_id}": value_id
                     for param_id, value_id in combination["combination_values"].items()}
-            configurations[combination['combination_number']] = config
+            configurations[frozenset(combination["combination_values"].items())] = config
         concepts = compute_formal_concepts(configurations)
         edges = compute_edges(concepts)
         
@@ -40,57 +45,6 @@ def classification():
             tuple(sorted(concepts[concept_name]["intent"]))
             for concept_name in selected_concepts
         )
-        
-        st.header("Kombinasjonsklasser")
-        class_number = 1
-        concept_name_changed = False
-        for concept_name, concept in concepts.items():
-            concept_intent_tuple = tuple(sorted(concept["intent"]))
-            if concept_intent_tuple in st.session_state.selected_concept_intents:
-                st.subheader(f"Klasse {class_number}")
-                concept_widget_key = "concept_name_" + ("|".join(concept_intent_tuple) if concept_intent_tuple else "__no_intent__")
-                current_name = st.session_state.concepts.get(concept_intent_tuple, {"name": concept_name})["name"]
-                col1, col2 = st.columns([5, 1], vertical_alignment="center")
-                concept_name_input = col1.text_input(
-                    "Klassenavn",
-                    value=current_name,
-                    key=concept_widget_key,
-                    label_visibility="collapsed",
-                )
-                if concept_name_input != current_name:
-                    concept_name_changed = True
-                    st.session_state.concepts[concept_intent_tuple]["name"] = concept_name_input
-                combination_numbers = concept.get("extent", [])
-                n_combinations = len(combination_numbers)
-                col2.markdown(f":blue[**{n_combinations} kombinasjon" + ("er" if n_combinations == 1 else "er") + "**]")
-
-                # Display combinations in this concept
-                param_columns = [param["param_name"] for param in st.session_state.params]
-                param_name_by_id = get_param_name_by_id(st.session_state.params)
-                value_name_by_id = get_value_name_by_id(st.session_state.params)
-                combinations = []
-                for combination in possible_combinations:
-                    if combination["combination_number"] in combination_numbers:
-                        combination_values = combination["combination_values"]
-                        row = {
-                            param_name_by_id[param_id]: value_name_by_id[value_id]
-                            for param_id, value_id in combination_values.items()
-                        }
-                        row["Kombinasjon nr."] = combination["combination_number"]
-                        combinations.append(row)
-                combination_df = pd.DataFrame(
-                    combinations,
-                    columns=["Kombinasjon nr."] + param_columns,
-                )
-                combination_df = combination_df.set_index("Kombinasjon nr.")
-                st.dataframe(combination_df)
-                class_number += 1
-
-        if concept_name_changed:
-            st.rerun()
-
-        st.divider()
-        st.header("Konseptvisualisering")
         edge_losses = {
             (child, parent): abstraction_loss(
                 concepts[child],
@@ -101,7 +55,7 @@ def classification():
         }
         graphviz_nodes = transform_nodes_to_graphviz(concepts, selected_concepts)
         graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
-        st.graphviz_chart(f"""
+        st.session_state.concepts_graph = f"""
             digraph G {{
                 rankdir=LR;
                 ranksep=1.5;
@@ -109,7 +63,74 @@ def classification():
                 {graphviz_nodes}
                 {graphviz_edges}
             }}
-        """)
+        """
+        update_possible_combinations_with_combination_class_names(
+            st.session_state.possible_combinations,
+            st.session_state.concepts,
+            st.session_state.selected_concept_intents,
+        )
+        st.rerun()
+    
+    st.header("Kombinasjonsklasser")
+    if not st.session_state.concepts:
+        st.info("Klikk på 'Oppdater klassifisering' for å beregne kombinasjonsklasser.")
+        return
+    param_columns = [param["param_name"] for param in st.session_state.params]
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+    class_number = 1
+    concept_name_changed = False
+    for concept_intent_tuple, concept_name_and_extent in st.session_state.concepts.items():
+        if concept_intent_tuple in st.session_state.selected_concept_intents:
+            st.subheader(f"Klasse {class_number}")
+            concept_widget_key = "concept_name_" + ("|".join(concept_intent_tuple) if concept_intent_tuple else "__no_intent__")
+            current_name = concept_name_and_extent["name"]
+            col1, col2 = st.columns([5, 1], vertical_alignment="center")
+            concept_name_input = col1.text_input(
+                "Klassenavn",
+                value=current_name,
+                key=concept_widget_key,
+                label_visibility="collapsed",
+            )
+            if concept_name_input != current_name:
+                concept_name_changed = True
+                st.session_state.concepts[concept_intent_tuple]["name"] = concept_name_input
+            combination_frozensets = concept_name_and_extent["extent"]
+            n_combinations = len(combination_frozensets)
+            col2.markdown(f":blue[**{n_combinations} kombinasjon" + ("" if n_combinations == 1 else "er") + "**]")
+
+            # Display combinations in this concept
+            combinations = []
+            for combination in possible_combinations:
+                if frozenset(combination["combination_values"].items()) in combination_frozensets:
+                    combination_values = combination["combination_values"]
+                    row = {
+                        param_name_by_id[param_id]: value_name_by_id[value_id]
+                        for param_id, value_id in combination_values.items()
+                    }
+                    row["Kombinasjon nr."] = combination["combination_number"]
+                    combinations.append(row)
+            combination_df = pd.DataFrame(
+                combinations,
+                columns=["Kombinasjon nr."] + param_columns,
+            )
+            combination_df = combination_df.set_index("Kombinasjon nr.")
+            st.dataframe(combination_df)
+            caption = ":small[:gray[Egenskaper: ]]"
+            for intent in concept_intent_tuple:
+                param_id, value_id = intent.split(" = ")
+                param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+                value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+                caption += f":gray-badge[{param_name} = {value_name}] "
+            st.markdown(caption)
+
+            class_number += 1
+
+    if concept_name_changed:
+        st.rerun()
+
+    if st.session_state.concepts_graph:
+        st.divider()
+        st.header("Konsepter")
+        st.graphviz_chart(st.session_state.concepts_graph)
         st.graphviz_chart(generate_graphviz_legend())
-
-

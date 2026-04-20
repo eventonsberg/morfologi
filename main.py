@@ -45,9 +45,9 @@ if "concepts" not in st.session_state:
 if "selected_concept_intents" not in st.session_state:
     # selected_concept_intents: set of concept_intent_tuple
     st.session_state.selected_concept_intents = set()
-if "combination_classes" not in st.session_state:
-    # combination_classes: list of dicts: {combination_class_id, combination_class_name, attributes: {param_id: value_id, ...}, number_of_combinations}
-    st.session_state.combination_classes = []
+if "concepts_graph" not in st.session_state:
+    # concepts_graph: graphviz graph object
+    st.session_state.concepts_graph = ""
 
 st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,

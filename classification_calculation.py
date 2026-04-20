@@ -12,7 +12,7 @@ import heapq
 # ----- CONCEPTS CALCULATION -----
 
 def build_formal_context(configurations: Dict[str, Dict[str, str]]):
-    objects = sorted(configurations.keys())
+    objects = list(configurations.keys())
     attributes = set()
     incidence = {}
 
