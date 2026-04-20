@@ -1,145 +1,296 @@
 import streamlit as st
 from itertools import combinations
+from typing import Dict, Set
+from collections import defaultdict
 from helpers import (
     get_param_name_by_id,
     get_value_name_by_id,
-    get_classification_rule_name_by_rule_id,
-    get_combination_values_by_classification_rule_id
 )
-from uuid import uuid4
-import pandas as pd
+import math
+import heapq
 
-def does_possible_combination_match_rule(possible_combination_values, rule_combination_values):
-    for param_id, value_ids in rule_combination_values.items():
-        if possible_combination_values.get(param_id) not in value_ids:
-            return False
-    return True
+# ----- CONCEPTS CALCULATION -----
 
-def get_combination_class_id_and_name(classification_rule_ids):
-    combination_classes = st.session_state.combination_classes
-    for combination_class in combination_classes:
-        if set(combination_class["classification_rule_ids"]) == set(classification_rule_ids):
-            return combination_class["combination_class_id"], combination_class["combination_class_name"]
-    new_class_id = str(uuid4())
-    classification_rule_name_by_rule_id = get_classification_rule_name_by_rule_id(st.session_state.classification_rules)
-    generic_class_name = " + ".join(
-        classification_rule_name_by_rule_id[rule_id]
-        for rule_id in classification_rule_ids
+def build_formal_context(configurations: Dict[str, Dict[str, str]]):
+   objects = sorted(configurations.keys())
+   attributes = set()
+   incidence = {}
+
+   for cid, cfg in configurations.items():
+       attrs = set()
+       for param, value in cfg.items():
+           attrs.add(f"{param} = {value}")
+           attributes.add(f"{param} = {value}")
+       incidence[cid] = attrs
+
+   return objects, attributes, incidence
+
+
+def extent_from_intent(intent: Set[str], incidence: Dict[str, Set[str]]) -> Set[str]:
+   return {obj for obj, attrs in incidence.items() if intent.issubset(attrs)}
+
+
+def intent_from_extent(extent: Set[str], incidence: Dict[str, Set[str]]) -> Set[str]:
+   if not extent:
+       return set()
+   shared = incidence[next(iter(extent))].copy()
+   for obj in extent:
+       shared &= incidence[obj]
+   return shared
+
+def compute_formal_concepts(configurations: Dict[str, Dict[str, str]]):
+   objects, attributes, incidence = build_formal_context(configurations)
+
+   concepts = []
+   seen = set()
+   attr_list = sorted(attributes)
+
+   for r in range(1, len(attr_list) + 1):
+       for subset in combinations(attr_list, r):
+           extent = extent_from_intent(set(subset), incidence)
+           if not extent:
+               continue
+           intent = intent_from_extent(extent, incidence)
+           key = (frozenset(extent), frozenset(intent))
+           if key not in seen:
+               seen.add(key)
+               concepts.append({"extent": set(extent), "intent": set(intent)})
+
+   # Top concept
+   top_extent = set(objects)
+   top_intent = intent_from_extent(top_extent, incidence)
+   key = (frozenset(top_extent), frozenset(top_intent))
+   if key not in seen:
+       concepts.append({"extent": top_extent, "intent": top_intent})
+
+   return {f"Konsept {i+1}": c for i, c in enumerate(concepts)}
+
+def compute_edges(concepts):
+   edges = []
+   for id1, c1 in concepts.items():
+       for id2, c2 in concepts.items():
+           if id1 == id2:
+               continue
+           if c1["extent"].issubset(c2["extent"]):
+               is_cover = True
+               for id3, c3 in concepts.items():
+                   if id3 in (id1, id2):
+                       continue
+                   if (
+                       c1["extent"].issubset(c3["extent"])
+                       and c3["extent"].issubset(c2["extent"])
+                       and c1["extent"] != c3["extent"]
+                       and c3["extent"] != c2["extent"]
+                   ):
+                       is_cover = False
+                       break
+               if is_cover:
+                   edges.append((id1, id2))
+   return edges
+
+# ----- EVALUATE CONCEPTS -----
+
+def compute_attribute_frequencies(concepts):
+    freq = defaultdict(int)
+    total = 0
+    for c in concepts.values():
+        for a in c["intent"]:
+            freq[a] += 1
+            total += 1
+    return {a: freq[a] / total for a in freq}
+
+def abstraction_loss(c_child, c_parent, attr_freq):
+
+    dropped_attrs = c_child["intent"] - c_parent["intent"]
+
+    # Cost: sum of inverse attribute frequencies
+    return sum(1 / (attr_freq.get(a, 1e-6)) for a in dropped_attrs)
+
+def compute_persistence(concepts, edges, attr_freq):
+
+    graph = defaultdict(list)
+    for child, parent in edges:
+        cost = abstraction_loss(
+            concepts[child],
+            concepts[parent],
+            attr_freq
+        )
+        graph[child].append((parent, cost))
+
+    persistence = {}
+
+    for start in concepts:
+        # Dijkstra from this concept upward
+        dist = {start: 0.0}
+        pq = [(0.0, start)]
+        best = math.inf
+
+        while pq:
+            d, u = heapq.heappop(pq)
+            if d >= best:
+                continue
+
+            # first encounter of a *strictly more abstract* concept
+            if len(concepts[u]["extent"]) > len(concepts[start]["extent"]):
+                best = d
+                break
+
+            for v, cost in graph.get(u, []):
+                nd = d + cost
+                if nd < dist.get(v, math.inf):
+                    dist[v] = nd
+                    heapq.heappush(pq, (nd, v))
+
+        persistence[start] = best if best < math.inf else None
+
+    return persistence
+
+def rescale_persistence_0_100(persistence, tol=1e-9):
+
+    finite_vals = [p for p in persistence.values() if p is not None]
+
+    if not finite_vals:
+        return persistence.copy()
+
+    p_min = min(finite_vals)
+    p_max = max(finite_vals)
+
+    # avoid division by zero if all values are equal
+    if abs(p_max - p_min) < tol:
+        return {
+            cid: (100.0 if p is not None else None)
+            for cid, p in persistence.items()
+        }
+
+    return {
+        cid: (
+            100.0 * (p - p_min) / (p_max - p_min)
+            if p is not None else None
+        )
+        for cid, p in persistence.items()
+    }
+
+# Konsept-verdi (slik at man enkelt senere kan endre på denne
+
+def concept_score(cid, concepts, persistence):
+
+    return persistence[cid]
+
+def overlap(c1, c2):
+    e1, e2 = c1["extent"], c2["extent"]
+    return len(e1 & e2) / min(len(e1), len(e2))
+
+
+def select_portfolio(concepts, persistence, params):
+    tau = params["persistence_threshold"]
+    epsilon = params["overlap_epsilon"]
+
+    # Step 1: candidate pool
+    candidates = [
+        cid for cid, c in concepts.items()
+        if persistence[cid] is not None
+        and persistence[cid] >= tau
+        and len(c["extent"]) >= 1
+    ]
+
+    # Step 2: rank candidates
+    candidates.sort(
+        key=lambda cid: concept_score(cid, concepts, persistence),
+        reverse=True
     )
-    return new_class_id, generic_class_name
 
-def update_combination_class_name(combination_class_id):
-    input_key = f"combination_class_name_input_{combination_class_id}"
-    for combination_class in st.session_state.combination_classes:
-        if combination_class["combination_class_id"] == combination_class_id:
-            combination_class["combination_class_name"] = st.session_state[input_key]
+    selected = []
+    uncovered = set().union(*[c["extent"] for c in concepts.values()])
+
+    # Step 3: greedy selection
+    for cid in candidates:
+        if all(
+            overlap(concepts[cid], concepts[s]) <= epsilon
+            for s in selected
+        ):
+            selected.append(cid)
+            uncovered -= concepts[cid]["extent"]
+
+        if not uncovered:
             break
 
-def update_combination_classes():
-    classification_rules = st.session_state.classification_rules
-    combination_classes = []
-    for n_rules in range(1, len(classification_rules) + 1):
-        for classification_rule_combination in combinations(classification_rules, n_rules):
-            classification_rule_ids = [rule["classification_rule_id"] for rule in classification_rule_combination]
-            combination_class_id, combination_class_name = get_combination_class_id_and_name(classification_rule_ids)
-            combination_classes.append({
-                "combination_class_id": combination_class_id,
-                "combination_class_name": combination_class_name,
-                "classification_rule_ids": classification_rule_ids,
-                "number_of_combinations": 0,
-            })
-    return combination_classes
+    # Step 4: patch uncovered
+    for cid, c in concepts.items():
+        if len(c["extent"]) == 1:
+            g = next(iter(c["extent"]))
+            if g in uncovered:
+                selected.append(cid)
+                uncovered.remove(g)
 
-def update_possible_combinations_with_combination_class_ids():
-    combination_classes = update_combination_classes()
-    st.session_state.combination_classes = combination_classes
-    possible_combinations = st.session_state.possible_combinations
-    combination_values_by_rule_id = get_combination_values_by_classification_rule_id(st.session_state.classification_rules)
+    return set(selected)
 
-    for possible_combination in possible_combinations:
-        possible_combination["combination_class_ids"] = []
+# ----- GRAPHVIZ -----
 
-    for combination_class in combination_classes:
-        classification_rule_ids = combination_class["classification_rule_ids"]
-        number_of_combinations = 0
-        for possible_combination in possible_combinations:
-            possible_combination_values = possible_combination["combination_values"]
-            matches_all_rules = all(
-                does_possible_combination_match_rule(
-                    possible_combination_values,
-                    combination_values_by_rule_id[rule_id],
-                )
-                for rule_id in classification_rule_ids
+def score_to_red_green_hex(score, min_score, max_score, tol=1e-9):
+    if score is None:
+        return "#444444"
+
+    if abs(max_score - min_score) < tol:
+        t = 0.5
+    else:
+        t = (float(score) - float(min_score)) / (float(max_score) - float(min_score))
+
+    t = max(0.0, min(1.0, t))
+    # Keep a clearly saturated green->red ramp, but avoid neon brightness.
+    low_rgb = (0, 220, 0)      # readable dark green
+    high_rgb = (255, 0, 0)     # readable deep red
+    red = int(low_rgb[0] + t * (high_rgb[0] - low_rgb[0]))
+    green = int(low_rgb[1] + t * (high_rgb[1] - low_rgb[1]))
+    blue = int(low_rgb[2] + t * (high_rgb[2] - low_rgb[2]))
+    return f"#{red:02x}{green:02x}{blue:02x}"
+
+def transform_edges_to_graphviz(edges, edge_losses=None):
+    graphviz_edges = []
+    finite_losses = [value for value in (edge_losses or {}).values() if value is not None]
+    min_loss = min(finite_losses) if finite_losses else 0.0
+    max_loss = max(finite_losses) if finite_losses else 1.0
+
+    for id1, id2 in edges:
+        if edge_losses and (id1, id2) in edge_losses:
+            loss = edge_losses[(id1, id2)]
+            font_color = score_to_red_green_hex(loss, min_loss, max_loss)
+            graphviz_edges.append(
+                f'"{id1}" -> "{id2}" [label=<<B><FONT COLOR="{font_color}">{loss:.2f}</FONT></B>> fontsize=9];'
             )
-            if matches_all_rules:
-                possible_combination["combination_class_ids"].append(combination_class["combination_class_id"])
-                number_of_combinations += 1
-        combination_class["number_of_combinations"] = number_of_combinations
+        else:
+            graphviz_edges.append(f'"{id1}" -> "{id2}";')
+    return "\n".join(graphviz_edges)
 
-def display_combination_classes():
-    update_possible_combinations_with_combination_class_ids()
-    combination_classes = st.session_state.combination_classes
-    possible_combinations = st.session_state.possible_combinations
+def generate_graphviz_legend():
+    return """
+        digraph Legend {
+            rankdir=LR;
+            margin=0;
+            node [fontsize=10];
+
+            legend_from [label="Konsept X"];
+            legend_to [label="Konsept Y"];
+            legend_from -> legend_to [label="Tap av unikhet ved abstraksjon" fontsize=10];
+        }
+    """
+
+def transform_nodes_to_graphviz(concepts, selected_concepts=None):
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
-    param_columns = [param["param_name"] for param in st.session_state.params]
-
-    class_counter = 0
-    for combination_class in combination_classes:
-        classification_rule_ids = combination_class["classification_rule_ids"]
-        possible_combinations_in_class = []
-        for possible_combination in possible_combinations:
-            if combination_class["combination_class_id"] in possible_combination["combination_class_ids"]:
-                possible_combination_values = possible_combination["combination_values"]
-                possible_combinations_in_class.append({
-                    param_name_by_id[param_id]: value_name_by_id[value_id]
-                    for param_id, value_id in possible_combination_values.items()
-                })
-        combination_class_df = pd.DataFrame(possible_combinations_in_class, columns=param_columns)
-        number_of_combinations = len(possible_combinations_in_class)
-        combination_class["number_of_combinations"] = number_of_combinations
-        
-        if number_of_combinations > 0:
-            class_counter += 1
-            st.subheader(f"Klasse {class_counter}")
-            col1, col2 = st.columns([5, 1], vertical_alignment="center")
-            input_key = f"combination_class_name_input_{combination_class['combination_class_id']}"
-            if input_key not in st.session_state:
-                st.session_state[input_key] = combination_class["combination_class_name"]
-            col1.text_input(
-                "Kombinasjonsklasse",
-                label_visibility="collapsed",
-                key=input_key,
-                on_change=update_combination_class_name,
-                args=(combination_class["combination_class_id"],),
+    graphviz_nodes = []
+    selected = set(selected_concepts or [])
+    for concept_id, concept in concepts.items():
+        intent_lines = sorted(concept["intent"])
+        intent_text = ""
+        for intent_line in intent_lines:
+            param_id, value_id = intent_line.split(" = ")
+            intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
+        intent_text = intent_text if intent_lines else "Ingen egenskaper"
+        label = f"<<B>{concept_id}</B><BR/>{intent_text}>".replace('"', '\\\\"')
+        if concept_id in selected:
+            graphviz_nodes.append(
+                f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
             )
-            col2.markdown(f":blue[**{number_of_combinations} kombinasjon{'er' if number_of_combinations != 1 else ''}**]")
-            
-            st.dataframe(combination_class_df)
-            st.markdown(
-                ":gray[:small[Basert på følgende klassifiseringsregler: ]]" +
-                "".join(
-                    f" :gray-badge[{get_classification_rule_name_by_rule_id(st.session_state.classification_rules)[rule_id]}]"
-                    for rule_id in classification_rule_ids
-                )
-            )
-    unclassified_combinations = [
-        possible_combination
-        for possible_combination in possible_combinations
-        if not possible_combination["combination_class_ids"]
-    ]
-    if unclassified_combinations:
-        st.subheader("Uklassifiserte kombinasjoner")
-        unclassified_combinations_data = [
-            {
-                param_name_by_id[param_id]: value_name_by_id[value_id]
-                for param_id, value_id in possible_combination["combination_values"].items()
-            }
-            for possible_combination in unclassified_combinations
-        ]
-        unclassified_combinations_df = pd.DataFrame(unclassified_combinations_data, columns=param_columns)
-        number_of_unclassified = len(unclassified_combinations)
-        st.markdown(f":blue[**{number_of_unclassified} kombinasjon{'er' if number_of_unclassified != 1 else ''}**] er ikke klassifisert av noen regel.")
-        st.dataframe(unclassified_combinations_df)
-
-        
+        else:
+            graphviz_nodes.append(f'"{concept_id}" [label={label}];')
+    return "\n".join(graphviz_nodes)
