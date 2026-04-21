@@ -67,9 +67,9 @@ if current_n_combinations != st.session_state.n_combinations[0]:
     st.session_state.n_combinations[1] = st.session_state.n_combinations[0]
     st.session_state.n_combinations[0] = current_n_combinations
 
-title_row = st.container(horizontal=True)
-title_row.title("Morfologi")
-title_row.metric(
+col1, col2 = st.columns(2)
+col1.title("Morfologi")
+col2.metric(
     "Mulige kombinasjoner",
     st.session_state.n_combinations[0],
     delta=st.session_state.n_combinations[0] - st.session_state.n_combinations[1],

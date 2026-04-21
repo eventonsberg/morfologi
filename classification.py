@@ -116,7 +116,7 @@ def classification():
             """
         else:
             st.session_state.concepts_graph = ""
-            
+
         update_possible_combinations_with_combination_class_names(
             st.session_state.possible_combinations,
             st.session_state.concepts,
@@ -124,7 +124,22 @@ def classification():
         )
         st.rerun()
     
-    st.header("Kombinasjonsklasser")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    col1.header("Kombinasjonsklasser")
+    col2.metric(
+        "Klasser",
+        len(st.session_state.selected_concept_intents),
+    )
+    not_classified_count = sum(
+        1
+        for combination in st.session_state.possible_combinations
+        if not combination.get("combination_class_names", [])
+    )
+    col3.metric(
+        "Uklassifiserte kombinasjoner",
+        not_classified_count,
+    )
+
     if not st.session_state.concepts:
         st.info("Klikk på 'Oppdater klassifisering' for å beregne kombinasjonsklasser.")
         return
