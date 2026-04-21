@@ -53,7 +53,11 @@ def classification():
             "Legg til klasser for enkeltkombinasjoner som ikke er dekket",
             value=classification_params.get("patch_uncovered", True)
         )
-        update_classification = st.form_submit_button("Oppdater klassifisering")
+        generate_concepts_graph = st.checkbox(
+            "Generer konseptvisualisering :gray[- Ikke anbefalt hvis] :gray-badge[Mulige kombinasjoner > 100]",
+            value=False
+        )
+        update_classification = st.form_submit_button("Oppdater klassifisering", type="primary")
 
     if update_classification:
         st.session_state.classification_params = {
@@ -84,30 +88,35 @@ def classification():
             tuple(sorted(concepts[concept_name]["intent"]))
             for concept_name in selected_concepts
         )
-        edge_losses = {
-            (child, parent): abstraction_loss(
-                concepts[child],
-                concepts[parent],
-                attribute_frequencies
+
+        if generate_concepts_graph:
+            edge_losses = {
+                (child, parent): abstraction_loss(
+                    concepts[child],
+                    concepts[parent],
+                    attribute_frequencies
+                )
+                for child, parent in edges
+            }
+            edge_losses = rescale_persistence_0_1(edge_losses)
+            graphviz_nodes = transform_nodes_to_graphviz(
+                concepts,
+                selected_concepts=selected_concepts,
+                concept_scores=persistence,
             )
-            for child, parent in edges
-        }
-        edge_losses = rescale_persistence_0_1(edge_losses)
-        graphviz_nodes = transform_nodes_to_graphviz(
-            concepts,
-            selected_concepts=selected_concepts,
-            concept_scores=persistence,
-        )
-        graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
-        st.session_state.concepts_graph = f"""
-            digraph G {{
-                rankdir=LR;
-                ranksep=1.5;
-                node [fontsize=10];
-                {graphviz_nodes}
-                {graphviz_edges}
-            }}
-        """
+            graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
+            st.session_state.concepts_graph = f"""
+                digraph G {{
+                    rankdir=LR;
+                    ranksep=1.5;
+                    node [fontsize=10];
+                    {graphviz_nodes}
+                    {graphviz_edges}
+                }}
+            """
+        else:
+            st.session_state.concepts_graph = ""
+            
         update_possible_combinations_with_combination_class_names(
             st.session_state.possible_combinations,
             st.session_state.concepts,
