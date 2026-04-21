@@ -5,6 +5,7 @@ from classification_calculation import (
     compute_edges,
     compute_attribute_frequencies,
     compute_persistence,
+    rescale_persistence_0_1,
     abstraction_loss,
     select_portfolio,
     transform_nodes_to_graphviz,
@@ -24,8 +25,43 @@ def classification():
     
     possible_combinations = st.session_state.possible_combinations
 
-    update_classification = st.button("Oppdater klassifisering", type="primary")
+    classification_params = st.session_state.classification_params
+
+    with st.form("classification_params_form"):
+        tau = st.slider(
+            "Minste tillatte konseptverdi",
+            min_value=0.00,
+            max_value=1.00,
+            value=classification_params.get("persistence_threshold", 0.00),
+            step=0.01
+        )
+        epsilon = st.slider(
+            "Maksimalt tillatt overlapp mellom klasser",
+            min_value=0.00,
+            max_value=1.00,
+            value=classification_params.get("overlap_epsilon", 0.00),
+            step=0.01
+        )
+        alpha = st.slider(
+            "Minste tillatte antall kombinasjoner i en klasse",
+            min_value=1,
+            max_value=len(possible_combinations),
+            value=min(classification_params.get("min_class_size", 2), len(possible_combinations)),
+            step=1
+        )
+        patch_uncovered = st.checkbox(
+            "Legg til klasser for enkeltkombinasjoner som ikke er dekket",
+            value=classification_params.get("patch_uncovered", True)
+        )
+        update_classification = st.form_submit_button("Oppdater klassifisering")
+
     if update_classification:
+        st.session_state.classification_params = {
+            "persistence_threshold": tau,
+            "overlap_epsilon": epsilon,
+            "min_class_size": alpha,
+            "patch_uncovered": patch_uncovered,
+        }
         configurations = {}
         for combination in possible_combinations:
             config = {f"{param_id}": value_id
@@ -36,9 +72,12 @@ def classification():
         
         attribute_frequencies = compute_attribute_frequencies(concepts)
         persistence = compute_persistence(concepts, edges, attribute_frequencies)
+        persistence = rescale_persistence_0_1(persistence)
         params = {
-            "persistence_threshold": 0,
-            "overlap_epsilon": 0,
+            "persistence_threshold": tau,
+            "overlap_epsilon": epsilon,
+            "min_class_size": alpha,
+            "patch_uncovered": patch_uncovered,
         }
         selected_concepts = select_portfolio(concepts, persistence, params)
         st.session_state.selected_concept_intents = set(
@@ -53,7 +92,12 @@ def classification():
             )
             for child, parent in edges
         }
-        graphviz_nodes = transform_nodes_to_graphviz(concepts, selected_concepts)
+        edge_losses = rescale_persistence_0_1(edge_losses)
+        graphviz_nodes = transform_nodes_to_graphviz(
+            concepts,
+            selected_concepts=selected_concepts,
+            concept_scores=persistence,
+        )
         graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
         st.session_state.concepts_graph = f"""
             digraph G {{

@@ -153,7 +153,7 @@ def compute_persistence(concepts, edges, attr_freq):
 
     return persistence
 
-def rescale_persistence_0_100(persistence, tol=1e-9):
+def rescale_persistence_0_1(persistence, tol=1e-9):
 
     finite_vals = [p for p in persistence.values() if p is not None]
 
@@ -166,13 +166,13 @@ def rescale_persistence_0_100(persistence, tol=1e-9):
     # avoid division by zero if all values are equal
     if abs(p_max - p_min) < tol:
         return {
-            cid: (100.0 if p is not None else None)
+            cid: (1.0 if p is not None else None)
             for cid, p in persistence.items()
         }
 
     return {
         cid: (
-            100.0 * (p - p_min) / (p_max - p_min)
+            1.0 * (p - p_min) / (p_max - p_min)
             if p is not None else None
         )
         for cid, p in persistence.items()
@@ -192,13 +192,15 @@ def overlap(c1, c2):
 def select_portfolio(concepts, persistence, params):
     tau = params["persistence_threshold"]
     epsilon = params["overlap_epsilon"]
+    alpha = params["min_class_size"]
+    patch_uncovered = params["patch_uncovered"]
 
     # Step 1: candidate pool
     candidates = [
         cid for cid, c in concepts.items()
         if persistence[cid] is not None
         and persistence[cid] >= tau
-        and len(c["extent"]) >= 1
+        and len(c["extent"]) >= alpha
     ]
 
     # Step 2: rank candidates
@@ -223,12 +225,13 @@ def select_portfolio(concepts, persistence, params):
             break
 
     # Step 4: patch uncovered
-    for cid, c in concepts.items():
-        if len(c["extent"]) == 1:
-            g = next(iter(c["extent"]))
-            if g in uncovered:
-                selected.append(cid)
-                uncovered.remove(g)
+    if patch_uncovered:
+        for cid, c in concepts.items():
+            if len(c["extent"]) == 1:
+                g = next(iter(c["extent"]))
+                if g in uncovered:
+                    selected.append(cid)
+                    uncovered.remove(g)
 
     return set(selected)
 
@@ -269,6 +272,29 @@ def transform_edges_to_graphviz(edges, edge_losses=None):
             graphviz_edges.append(f'"{id1}" -> "{id2}";')
     return "\n".join(graphviz_edges)
 
+def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores=None):
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+    graphviz_nodes = []
+    selected = set(selected_concepts or [])
+    for concept_id, concept in concepts.items():
+        score = (concept_scores or {}).get(concept_id)
+        score_text = f"Konseptverdi: {score:.2f}<BR/>" if score is not None else ""
+        intent_lines = sorted(concept["intent"])
+        intent_text = ""
+        for intent_line in intent_lines:
+            param_id, value_id = intent_line.split(" = ")
+            intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
+        intent_text = intent_text if intent_lines else "Ingen egenskaper"
+        label = f"<<B>{concept_id}</B><BR/>{score_text}{intent_text}>".replace('"', '\\\\"')
+        if concept_id in selected:
+            graphviz_nodes.append(
+                f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
+            )
+        else:
+            graphviz_nodes.append(f'"{concept_id}" [label={label}];')
+    return "\n".join(graphviz_nodes)
+
 def generate_graphviz_legend():
     return """
         digraph Legend {
@@ -281,24 +307,3 @@ def generate_graphviz_legend():
             legend_from -> legend_to [label="Tap av unikhet ved abstraksjon" fontsize=10];
         }
     """
-
-def transform_nodes_to_graphviz(concepts, selected_concepts=None):
-    param_name_by_id = get_param_name_by_id(st.session_state.params)
-    value_name_by_id = get_value_name_by_id(st.session_state.params)
-    graphviz_nodes = []
-    selected = set(selected_concepts or [])
-    for concept_id, concept in concepts.items():
-        intent_lines = sorted(concept["intent"])
-        intent_text = ""
-        for intent_line in intent_lines:
-            param_id, value_id = intent_line.split(" = ")
-            intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
-        intent_text = intent_text if intent_lines else "Ingen egenskaper"
-        label = f"<<B>{concept_id}</B><BR/>{intent_text}>".replace('"', '\\\\"')
-        if concept_id in selected:
-            graphviz_nodes.append(
-                f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
-            )
-        else:
-            graphviz_nodes.append(f'"{concept_id}" [label={label}];')
-    return "\n".join(graphviz_nodes)

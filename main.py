@@ -48,6 +48,9 @@ if "selected_concept_intents" not in st.session_state:
 if "concepts_graph" not in st.session_state:
     # concepts_graph: graphviz graph object
     st.session_state.concepts_graph = ""
+if "classification_params" not in st.session_state:
+    # classification_params: dict of {param_name: param_value}
+    st.session_state.classification_params = {}
 
 st.session_state.possible_combinations = get_possible_combinations(
     st.session_state.params,
