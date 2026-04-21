@@ -24,6 +24,7 @@ def empty_triangular_cc_matrix(params):
         False,
         index=values,
         columns=values,
+        dtype="boolean",
     )
 
     for i, v_row in enumerate(values):
@@ -31,11 +32,11 @@ def empty_triangular_cc_matrix(params):
 
             # Øvre-høyre greier
             if j > i:
-                df.iloc[i, j] = None
+                df.iloc[i, j] = pd.NA
 
             # Like parametre
             elif value_to_param[v_row] == value_to_param[v_col]:
-                df.iloc[i, j] = None
+                df.iloc[i, j] = pd.NA
     
     df = df.dropna(axis=0, how="all") 
     df = df.dropna(axis=1, how="all")
@@ -50,7 +51,7 @@ def empty_value_cc_matrix(params):
     for v1 in values:
         for v2 in values:
             if value_to_param[v1] == value_to_param[v2]:
-                df.loc[v1, v2] = None
+                df.loc[v1, v2] = pd.NA
 
     return df
 
