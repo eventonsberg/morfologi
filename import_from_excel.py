@@ -6,7 +6,8 @@ def transform_excel_data_to_session_state(
     params_and_values_df,
     descriptions_df,
     inconsistent_combinations_df,
-    #combination_classes_df
+    concepts_df,
+    classification_params_df
 ):
     param_descriptions = {}
     value_descriptions_by_param = {}
@@ -85,30 +86,43 @@ def transform_excel_data_to_session_state(
             "comment": comment,
         })
 
-    # TODO: Update this when combination class logic is implemented
-    '''st.session_state.combination_classes = []
-    for _, row in combination_classes_df.iterrows():
-        class_id = str(uuid4())
-        class_name = row.get("Kombinasjonsklasse", "")
-        if pd.isna(class_name):
-            class_name = ""
-        classification_rule_names_cell = row.get("Klassifiseringsregler", "")
-        classification_rule_ids = []
-        if pd.notna(classification_rule_names_cell):
-            for rule_name in str(classification_rule_names_cell).split(";"):
-                clean_rule_name = rule_name.strip()
-                rule_id = classification_rule_name_to_id.get(clean_rule_name)
-                if rule_id:
-                    classification_rule_ids.append(rule_id)
-        number_of_combinations = row.get("Antall kombinasjoner", 0)
-        if pd.isna(number_of_combinations):
-            number_of_combinations = 0
-        st.session_state.combination_classes.append({
-            "combination_class_id": class_id,
-            "combination_class_name": class_name,
-            "classification_rule_ids": classification_rule_ids,
-            "number_of_combinations": number_of_combinations,
-        })'''
+    st.session_state.concepts = {}
+    for _, row in concepts_df.iterrows():
+        concept_name = row.get("Konseptnavn", "")
+        if pd.isna(concept_name):
+            continue
+        concept_name = str(concept_name).strip()
+        intent_tuple = tuple()
+        attributes_str = row.get("Egenskaper", "")
+        if pd.isna(attributes_str):
+            attributes_str = ""
+        for attr in attributes_str.split(";"):
+            parts = attr.split(" = ")
+            if len(parts) != 2:
+                continue
+            param_name, value_name = parts
+            param_name = param_name.strip()
+            value_name = value_name.strip()
+            param_id = param_name_to_id.get(param_name)
+            if not param_id:
+                continue
+            value_id = value_name_to_id_by_param[param_id].get(value_name)
+            if not value_id:
+                continue
+            intent_tuple += (f"{param_id} = {value_id}",)
+        st.session_state.concepts[intent_tuple] = {
+            "name": concept_name,
+            "extent": set(),
+        }
+    st.session_state.selected_concept_intents = set()
+    st.session_state.concepts_graph = ""
+    st.session_state.classification_params = {}
+    for _, row in classification_params_df.iterrows():
+        param_name = row.get("Parameter", "")
+        value = row.get("Verdi", "")
+        if pd.isna(param_name) or pd.isna(value):
+            continue
+        st.session_state.classification_params[str(param_name).strip()] = str(value).strip()
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -130,12 +144,14 @@ def import_from_excel():
             params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
             descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
             inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
-            #combination_classes_df = pd.read_excel(xls, sheet_name='Kombinasjonsklasser', engine="openpyxl")
+            concepts_df = pd.read_excel(xls, sheet_name='Konsepter', engine="openpyxl")
+            classification_params_df = pd.read_excel(xls, sheet_name='Klassifiseringsparametre', engine="openpyxl")
             transform_excel_data_to_session_state(
                 params_and_values_df,
                 descriptions_df,
                 inconsistent_combinations_df,
-                #combination_classes_df
+                concepts_df,
+                classification_params_df
             )
             st.rerun()
         except Exception as e:

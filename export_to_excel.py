@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+from helpers import get_param_name_by_id, get_value_name_by_id
 
 def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
     params_and_values_data = {}
@@ -44,24 +45,32 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
             lambda classes: "; ".join(classes) if isinstance(classes, list) else classes
         )
 
-    # TODO: Update this when combination class logic is implemented
-    '''combination_classes_data = []
-    classification_rule_name_by_rule_id = get_classification_rule_name_by_rule_id(st.session_state.classification_rules)
-    for combination_class in st.session_state.combination_classes:
-        number_of_combinations = combination_class.get("number_of_combinations", 0)
-        if number_of_combinations > 0:
-            class_name = combination_class["combination_class_name"].strip()
-            classification_rule_ids = combination_class["classification_rule_ids"]
-            classification_rule_names = [
-                classification_rule_name_by_rule_id[rule_id].strip()
-                for rule_id in classification_rule_ids
-            ]
-            combination_classes_data.append({
-                "Kombinasjonsklasse": class_name,
-                "Klassifiseringsregler": "; ".join(classification_rule_names),
-                "Antall kombinasjoner": number_of_combinations
-            })
-    combination_classes_df = pd.DataFrame(combination_classes_data)'''
+    concepts_data = []
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+    for concept_intent_tuple, concept_info in st.session_state.concepts.items():
+        concept_name = concept_info["name"]
+        concept_extent = concept_info["extent"]
+        intent_descriptions = []
+        for intent in concept_intent_tuple:
+            param_id, value_id = intent.split(" = ")
+            param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+            value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+            intent_descriptions.append(f"{param_name} = {value_name}")
+        concepts_data.append({
+            "Konseptnavn": concept_name,
+            "Egenskaper": "; ".join(intent_descriptions),
+            "Antall kombinasjoner": len(concept_extent)
+        })
+    concepts_df = pd.DataFrame(concepts_data)
+
+    classification_params_data = []
+    for param_name, param_value in st.session_state.classification_params.items():
+        classification_params_data.append({
+            "Parameter": param_name,
+            "Verdi": str(param_value)
+        })
+    classification_params_df = pd.DataFrame(classification_params_data)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -69,7 +78,8 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
         descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
-        #combination_classes_df.to_excel(writer, index=False, sheet_name='Kombinasjonsklasser')
+        concepts_df.to_excel(writer, index=False, sheet_name='Konsepter')
+        classification_params_df.to_excel(writer, index=False, sheet_name='Klassifiseringsparametre')
     excel_data = output.getvalue()
     
     st.header("Lagre analyse")

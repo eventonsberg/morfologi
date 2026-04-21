@@ -32,21 +32,21 @@ def classification():
             "Minste tillatte konseptverdi",
             min_value=0.00,
             max_value=1.00,
-            value=classification_params.get("persistence_threshold", 0.00),
+            value=float(classification_params.get("persistence_threshold", 0.00)),
             step=0.01
         )
         epsilon = st.slider(
             "Maksimalt tillatt overlapp mellom klasser",
             min_value=0.00,
             max_value=1.00,
-            value=classification_params.get("overlap_epsilon", 0.00),
+            value=float(classification_params.get("overlap_epsilon", 0.00)),
             step=0.01
         )
         alpha = st.slider(
             "Minste tillatte antall kombinasjoner i en klasse",
             min_value=1,
             max_value=len(possible_combinations),
-            value=min(classification_params.get("min_class_size", 2), len(possible_combinations)),
+            value=min(int(classification_params.get("min_class_size", 2)), len(possible_combinations)),
             step=1
         )
         patch_uncovered = st.checkbox(
@@ -175,6 +175,6 @@ def classification():
 
     if st.session_state.concepts_graph:
         st.divider()
-        st.header("Konsepter")
+        st.header("Konsepter (mulige kombinasjonsklasser)")
         st.graphviz_chart(st.session_state.concepts_graph)
         st.graphviz_chart(generate_graphviz_legend())
