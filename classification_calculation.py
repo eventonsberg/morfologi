@@ -64,6 +64,13 @@ def compute_formal_concepts(configurations: Dict[str, Dict[str, str]]):
         concepts.append({"extent": top_extent, "intent": top_intent})
 
     concept_register = st.session_state.concepts
+    current_intent_tuples = {tuple(sorted(concept["intent"])) for concept in concepts}
+
+    # Remove stale concepts that no longer exist
+    for stale_key in list(concept_register.keys()):
+        if stale_key not in current_intent_tuples:
+            del concept_register[stale_key]
+
     for concept in concepts:
         intent_tuple = tuple(sorted(concept["intent"]))
         if intent_tuple not in concept_register:

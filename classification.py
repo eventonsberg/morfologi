@@ -129,6 +129,9 @@ def classification():
     col2.metric(
         "Klasser",
         len(st.session_state.selected_concept_intents),
+        delta=f"{len(st.session_state.concepts)} konsepter",
+        delta_color="off",
+        delta_arrow="off",
     )
     not_classified_count = sum(
         1
