@@ -2,6 +2,80 @@ import streamlit as st
 import pandas as pd
 from uuid import uuid4
 from helpers import get_param_name_by_id, get_value_name_by_id
+from itertools import product
+
+def all_value_names(params):
+    value_names = []
+    value_to_param = {}
+
+    for param in params:
+        for value in param["values"]:
+            name = value["value_name"]
+            value_names.append(name)
+            value_to_param[name] = param["param_id"]
+
+    return value_names, value_to_param
+
+
+def empty_triangular_cc_matrix(params):
+    values, value_to_param = all_value_names(params)
+
+    df = pd.DataFrame(
+        False,
+        index=values,
+        columns=values,
+    )
+
+    for i, v_row in enumerate(values):
+        for j, v_col in enumerate(values):
+
+            # Øvre-høyre greier
+            if j > i:
+                df.iloc[i, j] = None
+
+            # Like parametre
+            elif value_to_param[v_row] == value_to_param[v_col]:
+                df.iloc[i, j] = None
+    
+    df = df.dropna(axis=0, how="all") 
+    df = df.dropna(axis=1, how="all")
+
+    return df
+
+def empty_value_cc_matrix(params):
+    values, value_to_param = all_value_names(params)
+
+    df = pd.DataFrame(False, index=values, columns=values)
+
+    for v1 in values:
+        for v2 in values:
+            if value_to_param[v1] == value_to_param[v2]:
+                df.loc[v1, v2] = None
+
+    return df
+
+
+def fill_value_inconsistencies(df, inconsistent_combinations, params):
+    value_name_by_id = get_value_name_by_id(params)
+
+    for combo in inconsistent_combinations:
+        combo_vals = combo["combination_values"]
+
+        # Kun par av parametre, ikke tripler etc
+        if len(combo_vals) != 2:
+            continue
+
+        (_, v1_ids), (_, v2_ids) = combo_vals.items()
+
+        for v1_id, v2_id in product(v1_ids, v2_ids):
+            v1 = value_name_by_id[v1_id]
+            v2 = value_name_by_id[v2_id]
+
+            #df.loc[v1, v2] = 1
+            df.loc[v2, v1] = True
+
+    return df
+
 
 def inconsistent_combinations():
     if st.session_state.n_combinations[0] == 0:
@@ -97,4 +171,16 @@ def inconsistent_combinations():
                 if combination["combination_id"] in remaining_ids
             ]
             st.rerun()
+
+        st.divider()
+        st.subheader("Parvis inkonsistens")
+
+        blank_cc_matrix = empty_triangular_cc_matrix(st.session_state.params)
+        filled_cc_matrix = fill_value_inconsistencies(
+            blank_cc_matrix,
+            st.session_state.inconsistent_combinations,
+            st.session_state.params,
+        )
+        st.dataframe(filled_cc_matrix)
+
         return table_df
