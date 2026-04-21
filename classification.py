@@ -202,3 +202,11 @@ def classification():
         st.header("Konsepter (mulige kombinasjonsklasser)")
         st.graphviz_chart(st.session_state.concepts_graph)
         st.graphviz_chart(generate_graphviz_legend())
+        st.download_button(
+            "Last ned konseptvisualisering (.dot)",
+            data=st.session_state.concepts_graph,
+            icon=":material/download:",
+            file_name="concepts_graph.dot",
+            mime="text/vnd.graphviz",
+            help="Dette filformatet kan åpnes med verktøy som Graphviz Online"
+        )
