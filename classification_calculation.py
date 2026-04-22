@@ -74,7 +74,10 @@ def compute_formal_concepts(configurations: Dict[str, Dict[str, str]]):
     for concept in concepts:
         intent_tuple = tuple(sorted(concept["intent"]))
         if intent_tuple not in concept_register:
-            concept_register[intent_tuple] = {"name": f"Konsept {len(concept_register) + 1}", "extent": concept["extent"]}
+            concept_register[intent_tuple] = {
+                "name": f"Konsept {len(concept_register) + 1}",
+                "extent": concept["extent"]
+            }
         else:
             concept_register[intent_tuple]["extent"] = concept["extent"]
 

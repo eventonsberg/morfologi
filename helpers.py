@@ -82,10 +82,16 @@ def remove_value_from_inconsistent_combinations(inconsistent_combinations, param
     return cleaned_combinations
 
 def update_possible_combinations_with_combination_class_names(possible_combinations, concepts, selected_concept_intents):
+    selected_concepts = [
+        concepts[concept_intent_tuple]
+        for concept_intent_tuple in selected_concept_intents
+        if concept_intent_tuple in concepts
+    ]
+
     for combination in possible_combinations:
-        combination_class_names = []
-        for concept_intent_tuple, concept in concepts.items():
-            extent = concept.get("extent", set())
-            if concept_intent_tuple in selected_concept_intents and frozenset(combination["combination_values"].items()) in extent:
-                combination_class_names.append(concept["name"])
-        combination["combination_class_names"] = combination_class_names
+        combination_key = frozenset(combination["combination_values"].items())
+        combination["combination_class_names"] = [
+            concept_info["name"]
+            for concept_info in selected_concepts
+            if combination_key in concept_info.get("extent", set())
+        ]

@@ -124,22 +124,23 @@ def classification():
         )
         st.rerun()
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     col1.header("Kombinasjonsklasser")
     col2.metric(
         "Klasser",
         len(st.session_state.selected_concept_intents),
-        delta=f"{len(st.session_state.concepts)} konsepter",
-        delta_color="off",
-        delta_arrow="off",
+    )
+    col3.metric(
+        "Konsepter",
+        len(st.session_state.concepts),
     )
     not_classified_count = sum(
         1
         for combination in st.session_state.possible_combinations
         if not combination.get("combination_class_names", [])
     )
-    col3.metric(
-        "Uklassifiserte kombinasjoner",
+    col4.metric(
+        "Uklassifisert",
         not_classified_count,
     )
 
@@ -151,11 +152,11 @@ def classification():
     value_name_by_id = get_value_name_by_id(st.session_state.params)
     class_number = 1
     concept_name_changed = False
-    for concept_intent_tuple, concept_name_and_extent in st.session_state.concepts.items():
+    for concept_intent_tuple, concept_info in st.session_state.concepts.items():
         if concept_intent_tuple in st.session_state.selected_concept_intents:
             st.subheader(f"Klasse {class_number}")
             concept_widget_key = "concept_name_" + ("|".join(concept_intent_tuple) if concept_intent_tuple else "__no_intent__")
-            current_name = concept_name_and_extent["name"]
+            current_name = concept_info["name"]
             col1, col2 = st.columns([5, 1], vertical_alignment="center")
             concept_name_input = col1.text_input(
                 "Klassenavn",
@@ -166,7 +167,7 @@ def classification():
             if concept_name_input != current_name:
                 concept_name_changed = True
                 st.session_state.concepts[concept_intent_tuple]["name"] = concept_name_input
-            combination_frozensets = concept_name_and_extent["extent"]
+            combination_frozensets = concept_info["extent"]
             n_combinations = len(combination_frozensets)
             col2.markdown(f":blue[**{n_combinations} kombinasjon" + ("" if n_combinations == 1 else "er") + "**]")
 

@@ -40,7 +40,17 @@ if "possible_combinations" not in st.session_state:
     # possible_combinations: list of dicts: {combination_number, combination_values: {param_id: value_id, ...}, combination_class_names: [combination_class_name, ...]}
     st.session_state.possible_combinations = []
 if "concepts" not in st.session_state:
-    # concepts: dict of {concept_intent_tuple: {"name": concept_name, "extent": set}}
+    # concepts = {
+    #   concept_intent_tuple: {
+    #     "name": concept_name,
+    #     "extent": {
+    #       frozenset({(param_id: value_id), ...}),
+    #       ...
+    #     },
+    #     "value": concept_value
+    #   },
+    #   ...
+    # }
     st.session_state.concepts = {}
 if "selected_concept_intents" not in st.session_state:
     # selected_concept_intents: set of concept_intent_tuple
