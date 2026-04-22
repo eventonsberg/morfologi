@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from classification_calculation import (
     compute_formal_concepts,
+    sync_concept_register,
     compute_edges,
     compute_attribute_frequencies,
     compute_persistence,
@@ -10,7 +11,7 @@ from classification_calculation import (
     select_portfolio,
     transform_nodes_to_graphviz,
     transform_edges_to_graphviz,
-    generate_graphviz_legend
+    generate_graphviz_legend,
 )
 from helpers import (
     get_param_name_by_id,
@@ -72,6 +73,7 @@ def classification():
                     for param_id, value_id in combination["combination_values"].items()}
             configurations[frozenset(combination["combination_values"].items())] = config
         concepts = compute_formal_concepts(configurations)
+        st.session_state.n_concepts = len(concepts)
         edges = compute_edges(concepts)
         
         attribute_frequencies = compute_attribute_frequencies(concepts)
@@ -88,6 +90,15 @@ def classification():
             tuple(sorted(concepts[concept_name]["intent"]))
             for concept_name in selected_concepts
         )
+        sync_concept_register(concepts)
+        concept_labels = {}
+        concept_number = 0
+        for intent_tuple in sorted(concepts.keys()):
+            if intent_tuple in st.session_state.concepts:
+                concept_labels[intent_tuple] = st.session_state.concepts[intent_tuple]["name"]
+            else:
+                concept_number += 1
+                concept_labels[intent_tuple] = f"_konsept_{concept_number}"
 
         if generate_concepts_graph:
             edge_losses = {
@@ -103,6 +114,7 @@ def classification():
                 concepts,
                 selected_concepts=selected_concepts,
                 concept_scores=persistence,
+                concept_labels=concept_labels,
             )
             graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
             st.session_state.concepts_graph = f"""
@@ -132,7 +144,7 @@ def classification():
     )
     col3.metric(
         "Konsepter",
-        len(st.session_state.concepts),
+        int(st.session_state.get("n_concepts", 0)),
     )
     not_classified_count = sum(
         1

@@ -9,7 +9,48 @@ from helpers import (
 import math
 import heapq
 
-# ----- CONCEPTS CALCULATION -----
+
+def is_auto_concept_name(name: str) -> bool:
+    return str(name).lstrip().startswith("_")
+
+
+def sync_concept_register(
+    formal_concepts,
+):
+    concept_register = st.session_state.concepts
+    selected_concept_intents = st.session_state.selected_concept_intents
+    current_intent_tuples = set(formal_concepts.keys())
+
+    # Keep only still-valid concepts from previous runs.
+    for stale_key in list(concept_register.keys()):
+        if stale_key not in current_intent_tuples:
+            del concept_register[stale_key]
+
+    manually_named_intents = {
+        intent_tuple
+        for intent_tuple, concept_info in concept_register.items()
+        if not is_auto_concept_name(concept_info.get("name", "_"))
+    }
+
+    intents_to_keep = (set(selected_concept_intents) | manually_named_intents) & current_intent_tuples
+
+    updated_register = {}
+    auto_class_index = 0
+    for intent_tuple in sorted(intents_to_keep):
+        existing_info = concept_register.get(intent_tuple, {})
+        existing_name = existing_info.get("name", "")
+        if existing_name and not is_auto_concept_name(existing_name):
+            concept_name = existing_name
+        else:
+            auto_class_index += 1
+            concept_name = f"_klasse_{auto_class_index}"
+        updated_register[intent_tuple] = {
+            "name": concept_name,
+            "extent": formal_concepts[intent_tuple]["extent"],
+        }
+
+    concept_register.clear()
+    concept_register.update(updated_register)
 
 def build_formal_context(configurations: Dict[str, Dict[str, str]]):
     objects = list(configurations.keys())
@@ -63,25 +104,13 @@ def compute_formal_concepts(configurations: Dict[str, Dict[str, str]]):
     if key not in seen:
         concepts.append({"extent": top_extent, "intent": top_intent})
 
-    concept_register = st.session_state.concepts
-    current_intent_tuples = {tuple(sorted(concept["intent"])) for concept in concepts}
-
-    # Remove stale concepts that no longer exist
-    for stale_key in list(concept_register.keys()):
-        if stale_key not in current_intent_tuples:
-            del concept_register[stale_key]
-
-    for concept in concepts:
-        intent_tuple = tuple(sorted(concept["intent"]))
-        if intent_tuple not in concept_register:
-            concept_register[intent_tuple] = {
-                "name": f"Konsept {len(concept_register) + 1}",
-                "extent": concept["extent"]
-            }
-        else:
-            concept_register[intent_tuple]["extent"] = concept["extent"]
-
-    return {concept_register[tuple(sorted(c["intent"]))]["name"]: c for c in concepts}
+    return {
+        tuple(sorted(concept["intent"])): {
+            "extent": concept["extent"],
+            "intent": concept["intent"],
+        }
+        for concept in concepts
+    }
 
 def compute_edges(concepts):
     edges = []
@@ -282,7 +311,7 @@ def transform_edges_to_graphviz(edges, edge_losses=None):
             graphviz_edges.append(f'"{id1}" -> "{id2}";')
     return "\n".join(graphviz_edges)
 
-def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores=None):
+def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores=None, concept_labels=None):
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
     graphviz_nodes = []
@@ -290,13 +319,14 @@ def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores
     for concept_id, concept in concepts.items():
         score = (concept_scores or {}).get(concept_id)
         score_text = f"Konseptverdi: {score:.2f}<BR/>" if score is not None else ""
+        concept_title = (concept_labels or {}).get(concept_id, str(concept_id))
         intent_lines = sorted(concept["intent"])
         intent_text = ""
         for intent_line in intent_lines:
             param_id, value_id = intent_line.split(" = ")
             intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
         intent_text = intent_text if intent_lines else "Ingen egenskaper"
-        label = f"<<B>{concept_id}</B><BR/>{score_text}{intent_text}>".replace('"', '\\\\"')
+        label = f"<<B>{concept_title}</B><BR/>{score_text}{intent_text}>".replace('"', '\\\\"')
         if concept_id in selected:
             graphviz_nodes.append(
                 f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
