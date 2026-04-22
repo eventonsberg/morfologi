@@ -16,6 +16,7 @@ def is_auto_concept_name(name: str) -> bool:
 
 def sync_concept_register(
     formal_concepts,
+    concept_values,
 ):
     concept_register = st.session_state.concepts
     selected_concept_intents = st.session_state.selected_concept_intents
@@ -47,6 +48,7 @@ def sync_concept_register(
         updated_register[intent_tuple] = {
             "name": concept_name,
             "extent": formal_concepts[intent_tuple]["extent"],
+            "value": concept_values.get(intent_tuple),
         }
 
     concept_register.clear()

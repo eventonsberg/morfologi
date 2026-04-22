@@ -116,6 +116,7 @@ def transform_excel_data_to_session_state(
         }
     st.session_state.selected_concept_intents = set()
     st.session_state.concepts_graph = ""
+    st.session_state.n_concepts = 0
     st.session_state.classification_params = {}
     for _, row in classification_params_df.iterrows():
         param_name = row.get("Parameter", "")

@@ -90,10 +90,10 @@ def classification():
             tuple(sorted(concepts[concept_name]["intent"]))
             for concept_name in selected_concepts
         )
-        sync_concept_register(concepts)
+        sync_concept_register(concepts, persistence)
         concept_labels = {}
         concept_number = 0
-        for intent_tuple in sorted(concepts.keys()):
+        for intent_tuple in concepts.keys():
             if intent_tuple in st.session_state.concepts:
                 concept_labels[intent_tuple] = st.session_state.concepts[intent_tuple]["name"]
             else:
@@ -162,15 +162,12 @@ def classification():
     param_columns = [param["param_name"] for param in st.session_state.params]
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
-    class_number = 1
     concept_name_changed = False
     for concept_intent_tuple, concept_info in st.session_state.concepts.items():
         if concept_intent_tuple in st.session_state.selected_concept_intents:
-            st.subheader(f"Klasse {class_number}")
             concept_widget_key = "concept_name_" + ("|".join(concept_intent_tuple) if concept_intent_tuple else "__no_intent__")
             current_name = concept_info["name"]
-            col1, col2 = st.columns([5, 1], vertical_alignment="center")
-            concept_name_input = col1.text_input(
+            concept_name_input = st.text_input(
                 "Klassenavn",
                 value=current_name,
                 key=concept_widget_key,
@@ -180,8 +177,19 @@ def classification():
                 concept_name_changed = True
                 st.session_state.concepts[concept_intent_tuple]["name"] = concept_name_input
             combination_frozensets = concept_info["extent"]
+
+            caption = ":small[:gray[Kombinasjoner: ]]"
             n_combinations = len(combination_frozensets)
-            col2.markdown(f":blue[**{n_combinations} kombinasjon" + ("" if n_combinations == 1 else "er") + "**]")
+            caption += f" :blue-badge[{n_combinations}]"
+            caption += " :small[:gray[Konseptverdi: ]]"
+            caption += f" :blue-badge[{concept_info['value']:.2f}]"
+            caption += " :small[:gray[Egenskaper: ]]"
+            for intent in concept_intent_tuple:
+                param_id, value_id = intent.split(" = ")
+                param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+                value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+                caption += f" :blue-badge[{param_name} = {value_name}] "
+            st.markdown(caption)
 
             # Display combinations in this concept
             combinations = []
@@ -200,21 +208,13 @@ def classification():
             )
             combination_df = combination_df.set_index("Kombinasjon nr.")
             st.dataframe(combination_df)
-            caption = ":small[:gray[Egenskaper: ]]"
-            for intent in concept_intent_tuple:
-                param_id, value_id = intent.split(" = ")
-                param_name = param_name_by_id.get(param_id, f"Param {param_id}")
-                value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
-                caption += f":gray-badge[{param_name} = {value_name}] "
-            st.markdown(caption)
-
-            class_number += 1
+            st.divider()
 
     if concept_name_changed:
         st.rerun()
 
     if st.session_state.concepts_graph:
-        st.divider()
+        #st.divider()
         st.header("Konsepter (mulige kombinasjonsklasser)")
         st.graphviz_chart(st.session_state.concepts_graph)
         st.graphviz_chart(generate_graphviz_legend())
@@ -224,5 +224,5 @@ def classification():
             icon=":material/download:",
             file_name="concepts_graph.dot",
             mime="text/vnd.graphviz",
-            help="Dette filformatet kan åpnes med verktøy som Graphviz Online"
+            help="Dette filformatet kan åpnes i *Graphviz Online*"
         )
