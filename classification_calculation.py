@@ -319,16 +319,18 @@ def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores
     graphviz_nodes = []
     selected = set(selected_concepts or [])
     for concept_id, concept in concepts.items():
+        concept_title = (concept_labels or {}).get(concept_id, str(concept_id))
+        n_combinations = len(concept["extent"])
+        combinations_text = f"Kombinasjoner: {n_combinations}<BR/>"
         score = (concept_scores or {}).get(concept_id)
         score_text = f"Konseptverdi: {score:.2f}<BR/>" if score is not None else ""
-        concept_title = (concept_labels or {}).get(concept_id, str(concept_id))
         intent_lines = sorted(concept["intent"])
         intent_text = ""
         for intent_line in intent_lines:
             param_id, value_id = intent_line.split(" = ")
             intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
         intent_text = intent_text if intent_lines else "Ingen egenskaper"
-        label = f"<<B>{concept_title}</B><BR/>{score_text}{intent_text}>".replace('"', '\\\\"')
+        label = f"<<B>{concept_title}</B><BR/>{combinations_text}{score_text}{intent_text}>".replace('"', '\\\\"')
         if concept_id in selected:
             graphviz_nodes.append(
                 f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
