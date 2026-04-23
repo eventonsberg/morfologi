@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from urllib.parse import quote
 from classification_calculation import (
     compute_formal_concepts,
     sync_concept_register,
@@ -65,10 +66,6 @@ def classification():
             "Legg til klasser for enkeltkombinasjoner som ikke er dekket",
             value=classification_params.get("patch_uncovered", False)
         )
-        generate_concepts_graph = st.checkbox(
-            "Generer konseptvisualisering :gray[- Ikke anbefalt hvis] :gray-badge[Mulige kombinasjoner > 100]",
-            value=False
-        )
         update_classification = st.form_submit_button("Oppdater klassifisering", type="primary")
 
     if update_classification:
@@ -113,34 +110,31 @@ def classification():
                 concept_number += 1
                 concept_labels[intent_tuple] = f"_konsept_{concept_number}"
 
-        if generate_concepts_graph:
-            edge_losses = {
-                (child, parent): abstraction_loss(
-                    concepts[child],
-                    concepts[parent],
-                    attribute_frequencies
-                )
-                for child, parent in edges
-            }
-            edge_losses = rescale_persistence_0_1(edge_losses)
-            graphviz_nodes = transform_nodes_to_graphviz(
-                concepts,
-                selected_concepts=selected_concepts,
-                concept_scores=persistence,
-                concept_labels=concept_labels,
+        edge_losses = {
+            (child, parent): abstraction_loss(
+                concepts[child],
+                concepts[parent],
+                attribute_frequencies
             )
-            graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
-            st.session_state.concepts_graph = f"""
-                digraph G {{
-                    rankdir=LR;
-                    ranksep=1.5;
-                    node [fontsize=10];
-                    {graphviz_nodes}
-                    {graphviz_edges}
-                }}
-            """
-        else:
-            st.session_state.concepts_graph = ""
+            for child, parent in edges
+        }
+        edge_losses = rescale_persistence_0_1(edge_losses)
+        graphviz_nodes = transform_nodes_to_graphviz(
+            concepts,
+            selected_concepts=selected_concepts,
+            concept_scores=persistence,
+            concept_labels=concept_labels,
+        )
+        graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
+        st.session_state.concepts_graph = f"""
+            digraph G {{
+                rankdir=LR;
+                ranksep=1.5;
+                node [fontsize=10];
+                {graphviz_nodes}
+                {graphviz_edges}
+            }}
+        """
 
         update_possible_combinations_with_combination_class_names(
             st.session_state.possible_combinations,
@@ -229,9 +223,16 @@ def classification():
         st.rerun()
 
     if st.session_state.concepts_graph:
-        st.header("Konsepter")
-        st.graphviz_chart(st.session_state.concepts_graph)
-        st.graphviz_chart(generate_graphviz_legend())
+        st.header("Konseptvisualisering")
+        graphviz_url = "https://dreampuf.github.io/GraphvizOnline/#" + quote(
+            st.session_state.concepts_graph,
+            safe=""
+        )
+        st.link_button(
+            "Åpne konseptvisualisering i Graphviz Online",
+            graphviz_url,
+            icon=":material/open_in_new:"
+        )
         st.download_button(
             "Last ned konseptvisualisering (.dot)",
             data=st.session_state.concepts_graph,
@@ -240,3 +241,10 @@ def classification():
             mime="text/vnd.graphviz",
             help="Dette filformatet kan åpnes i *Graphviz Online*"
         )
+        if st.button(
+            "Generer konseptvisualisering",
+            icon=":material/visibility:",
+            help="Genereringen vil være tidkrevende ved mange konsepter",
+        ):
+            st.graphviz_chart(st.session_state.concepts_graph)
+            st.graphviz_chart(generate_graphviz_legend())
