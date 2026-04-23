@@ -20,8 +20,19 @@ from helpers import (
 )
 
 def classification():
+    pending_classification_toast = st.session_state.pop("pending_classification_toast", False)
+    if pending_classification_toast:
+        st.toast(
+            "Ingen konsepter oppfyller klassekriteriene. Juster klassifiseringsparametrene.",
+            icon=":material/warning:",
+            duration="long"
+        )
+
     if st.session_state.n_combinations[0] == 0:
         st.info("Ingen mulige kombinasjoner.")
+        return
+    elif st.session_state.n_combinations[0] <= 2:
+        st.info("Flere kombinasjoner kreves for å kunne klassifisere.")
         return
     
     possible_combinations = st.session_state.possible_combinations
@@ -47,12 +58,12 @@ def classification():
             "Minste tillatte antall kombinasjoner i en klasse",
             min_value=1,
             max_value=len(possible_combinations),
-            value=min(int(classification_params.get("min_class_size", 2)), len(possible_combinations)),
+            value=min(int(classification_params.get("min_class_size", 1)), len(possible_combinations)),
             step=1
         )
         patch_uncovered = st.checkbox(
             "Legg til klasser for enkeltkombinasjoner som ikke er dekket",
-            value=classification_params.get("patch_uncovered", True)
+            value=classification_params.get("patch_uncovered", False)
         )
         generate_concepts_graph = st.checkbox(
             "Generer konseptvisualisering :gray[- Ikke anbefalt hvis] :gray-badge[Mulige kombinasjoner > 100]",
@@ -86,6 +97,8 @@ def classification():
             "patch_uncovered": patch_uncovered,
         }
         selected_concepts = select_portfolio(concepts, persistence, params)
+        if len(selected_concepts) == 0:
+            st.session_state.pending_classification_toast = True
         st.session_state.selected_concept_intents = set(
             tuple(sorted(concepts[concept_name]["intent"]))
             for concept_name in selected_concepts
@@ -156,9 +169,11 @@ def classification():
         not_classified_count,
     )
 
-    if not st.session_state.concepts:
+    if st.session_state.get("n_concepts", 0) == 0:
         st.info("Klikk på 'Oppdater klassifisering' for å beregne kombinasjonsklasser.")
         return
+    elif len(st.session_state.selected_concept_intents) == 0:
+        st.info("Ingen klasser.")
     param_columns = [param["param_name"] for param in st.session_state.params]
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
@@ -214,8 +229,7 @@ def classification():
         st.rerun()
 
     if st.session_state.concepts_graph:
-        #st.divider()
-        st.header("Konsepter (mulige kombinasjonsklasser)")
+        st.header("Konsepter")
         st.graphviz_chart(st.session_state.concepts_graph)
         st.graphviz_chart(generate_graphviz_legend())
         st.download_button(
