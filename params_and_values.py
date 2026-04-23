@@ -14,7 +14,7 @@ def params_and_values():
                 param_name_key = f"param_name_{param['param_id']}"
                 if param_name_key not in st.session_state:
                     st.session_state[param_name_key] = param["param_name"]
-                pcol1, pcol2 = st.columns([3, 1], vertical_alignment="bottom")
+                pcol1, pcol2 = st.columns([7, 1], vertical_alignment="bottom")
                 new_param_name = pcol1.text_input(
                     "Parameter",
                     key=param_name_key,
@@ -36,7 +36,7 @@ def params_and_values():
         for param_idx, param in enumerate(st.session_state.params):
             with cols[param_idx]:
                 for value_idx, value in enumerate(param["values"]):
-                    vcol1, vcol2 = st.columns([3, 1], vertical_alignment="bottom")
+                    vcol1, vcol2 = st.columns([7, 1], vertical_alignment="bottom")
                     value_name_key = f"value_name_{param['param_id']}_{value['value_id']}"
                     if value_name_key not in st.session_state:
                         st.session_state[value_name_key] = value["value_name"]
@@ -64,7 +64,7 @@ def params_and_values():
         for param_idx, param in enumerate(st.session_state.params):
             with cols[param_idx]:
                 with st.form(f"values_form_{param['param_id']}", clear_on_submit=True, border=False):
-                    vform_col1, vform_col2 = st.columns([3, 1], vertical_alignment="bottom")
+                    vform_col1, vform_col2 = st.columns([7, 1], vertical_alignment="bottom")
                     new_value_name = vform_col1.text_input(
                         param["param_name"],
                         placeholder="Skriv inn verdi",
@@ -93,7 +93,7 @@ def params_and_values():
     st.subheader("Legg til parametere")
     cols = st.columns(max(n_params, 1))
     with cols[0].form("params_form", clear_on_submit=True, border=False):
-        pform_col1, pform_col2 = st.columns([3, 1])
+        pform_col1, pform_col2 = st.columns([7, 1])
         new_param_name = pform_col1.text_input(
             "Ny parameter",
             placeholder="Skriv inn parameternavn",
