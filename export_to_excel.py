@@ -41,7 +41,7 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
 
     clean_possible_combinations_df = possible_combinations_df.copy()
     if not clean_possible_combinations_df.empty:
-        clean_possible_combinations_df["Kombinasjonsklasser"] = clean_possible_combinations_df["Kombinasjonsklasser"].apply(
+        clean_possible_combinations_df["Klassifisering"] = clean_possible_combinations_df["Klassifisering"].apply(
             lambda classes: "; ".join(classes) if isinstance(classes, list) else classes
         )
 
@@ -78,7 +78,7 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
         descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
-        concepts_df.to_excel(writer, index=False, sheet_name='Konsepter')
+        concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
         classification_params_df.to_excel(writer, index=False, sheet_name='Klassifiseringsparametre')
     excel_data = output.getvalue()
     

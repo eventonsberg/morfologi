@@ -21,17 +21,12 @@ def possible_combinations():
         }
         row["Kombinasjon nr."] = combination["combination_number"]
         combination_class_names = combination["combination_class_names"]
-        row["Kombinasjonsklasser"] = combination_class_names
+        row["Klassifisering"] = combination_class_names
         table_rows.append(row)
     table_df = pd.DataFrame(
         table_rows,
-        columns=["Kombinasjon nr."] + param_columns + ["Kombinasjonsklasser"],
+        columns=["Kombinasjon nr."] + param_columns + ["Klassifisering"],
     )
     table_df = table_df.set_index("Kombinasjon nr.")
-    table_placeholder = st.empty()
-    display_df = table_df.copy()
-    show_combination_classes = st.checkbox("Vis tilhørende kombinasjonsklasser", value=True)
-    if not show_combination_classes:
-        display_df.drop(columns=["Kombinasjonsklasser"], inplace=True)
-    table_placeholder.dataframe(display_df, hide_index=False)
+    st.dataframe(table_df, hide_index=False)
     return table_df

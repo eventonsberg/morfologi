@@ -144,7 +144,7 @@ def import_from_excel():
         params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
         descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
         inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
-        concepts_df = pd.read_excel(xls, sheet_name='Konsepter', engine="openpyxl")
+        concepts_df = pd.read_excel(xls, sheet_name='Klasser', engine="openpyxl")
         classification_params_df = pd.read_excel(xls, sheet_name='Klassifiseringsparametre', engine="openpyxl")
         transform_excel_data_to_session_state(
             params_and_values_df,
