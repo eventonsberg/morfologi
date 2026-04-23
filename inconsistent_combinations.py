@@ -159,7 +159,7 @@ def inconsistent_combinations():
     st.subheader("Registrerte inkonsistente kombinasjoner")
     if not st.session_state.inconsistent_combinations:
         st.info("Ingen inkonsistente kombinasjoner registrert.")
-        return pd.DataFrame()
+        st.session_state.inconsistent_combinations_df = pd.DataFrame()
     else:
         param_name_by_id = get_param_name_by_id(st.session_state.params)
         value_name_by_id = get_value_name_by_id(st.session_state.params)
@@ -220,4 +220,4 @@ def inconsistent_combinations():
         )
         st.dataframe(filled_cc_matrix, height="content")
 
-        return table_df
+        st.session_state.inconsistent_combinations_df = table_df

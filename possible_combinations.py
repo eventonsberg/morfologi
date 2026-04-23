@@ -8,7 +8,8 @@ from helpers import (
 def possible_combinations():
     if st.session_state.n_combinations[0] == 0:
         st.info("Ingen mulige kombinasjoner.")
-        return pd.DataFrame()
+        st.session_state.possible_combinations_df = pd.DataFrame()
+        return
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
     param_columns = [param["param_name"] for param in st.session_state.params]
@@ -29,4 +30,4 @@ def possible_combinations():
     )
     table_df = table_df.set_index("Kombinasjon nr.")
     st.dataframe(table_df, hide_index=False)
-    return table_df
+    st.session_state.possible_combinations_df = table_df

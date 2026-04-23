@@ -3,7 +3,7 @@ import pandas as pd
 from io import BytesIO
 from helpers import get_param_name_by_id, get_value_name_by_id
 
-def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
+def export_to_excel():
     params_and_values_data = {}
     for param in st.session_state.params:
         param_name = param["param_name"].strip()
@@ -30,6 +30,7 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
             })
     descriptions_df = pd.DataFrame(descriptions_data)
 
+    inconsistent_combinations_df = st.session_state.get("inconsistent_combinations_df", pd.DataFrame())
     clean_inconsistent_combinations_df = inconsistent_combinations_df.copy()
     if not clean_inconsistent_combinations_df.empty:
         clean_inconsistent_combinations_df.drop(columns=["_combination_id"], inplace=True)
@@ -39,6 +40,7 @@ def export_to_excel(inconsistent_combinations_df, possible_combinations_df):
                 lambda value: "; ".join(value) if isinstance(value, list) else value
             )
 
+    possible_combinations_df = st.session_state.get("possible_combinations_df", pd.DataFrame())
     clean_possible_combinations_df = possible_combinations_df.copy()
     if not clean_possible_combinations_df.empty:
         clean_possible_combinations_df["Klassifisering"] = clean_possible_combinations_df["Klassifisering"].apply(
