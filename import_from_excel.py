@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import hashlib
-from io import BytesIO
 from uuid import uuid4
 
 def transform_excel_data_to_session_state(
@@ -129,25 +127,20 @@ def transform_excel_data_to_session_state(
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
+    uploader_key = f"excel_uploader_{st.session_state.get('uploader_key', 0)}"
     uploaded_file = st.file_uploader(
         "Last opp Excel-fil",
         type=["xlsx"],
         label_visibility="collapsed",
-        key="excel_uploader",
+        key=uploader_key,
     )
     st.caption(":red[:material/warning:] Ved opplasting vil alle nåværende data i appen bli overskrevet.")
 
     if uploaded_file is None:
-        st.session_state.pop("last_imported_excel_hash", None)
-        return
-
-    file_bytes = uploaded_file.getvalue()
-    file_hash = hashlib.sha256(file_bytes).hexdigest()
-    if st.session_state.get("last_imported_excel_hash") == file_hash:
         return
 
     try:
-        xls = pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
+        xls = pd.ExcelFile(uploaded_file, engine="openpyxl")
         params_and_values_df = pd.read_excel(xls, sheet_name='Parametere og verdier', engine="openpyxl")
         descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
         inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
@@ -160,7 +153,7 @@ def import_from_excel():
             concepts_df,
             classification_params_df
         )
-        st.session_state.last_imported_excel_hash = file_hash
+        st.session_state.uploader_key = st.session_state.get("uploader_key", 0) + 1
         st.rerun()
     except Exception as e:
         st.error(f"Feil ved import av Excel-fil: {e}")
