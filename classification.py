@@ -222,7 +222,7 @@ def classification():
                 columns=["Kombinasjon nr."] + param_columns,
             )
             combination_df = combination_df.set_index("Kombinasjon nr.")
-            st.dataframe(combination_df)
+            st.dataframe(combination_df, height="content")
             st.divider()
 
     if concept_name_changed:

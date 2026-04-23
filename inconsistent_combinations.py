@@ -4,6 +4,29 @@ from uuid import uuid4
 from helpers import get_param_name_by_id, get_value_name_by_id
 from itertools import product
 
+
+def value_axis_metadata(params):
+    entries = []
+    label_by_value_id = {}
+
+    for param in params:
+        param_id = param["param_id"]
+        param_name = param["param_name"]
+        for value in param["values"]:
+            value_id = value["value_id"]
+            value_name = value["value_name"]
+            label = (param_name, value_name)
+            entries.append(
+                {
+                    "param_id": param_id,
+                    "value_id": value_id,
+                    "label": label,
+                }
+            )
+            label_by_value_id[value_id] = label
+
+    return entries, label_by_value_id
+
 def all_value_names(params):
     value_names = []
     value_to_param = {}
@@ -18,28 +41,38 @@ def all_value_names(params):
 
 
 def empty_triangular_cc_matrix(params):
-    values, value_to_param = all_value_names(params)
+    entries, _ = value_axis_metadata(params)
+    labels = [entry["label"] for entry in entries]
 
     df = pd.DataFrame(
         False,
-        index=values,
-        columns=values,
+        index=labels,
+        columns=labels,
         dtype="boolean",
     )
 
-    for i, v_row in enumerate(values):
-        for j, v_col in enumerate(values):
+    for i, row_entry in enumerate(entries):
+        for j, col_entry in enumerate(entries):
 
             # Øvre-høyre greier
-            if j > i:
-                df.iloc[i, j] = pd.NA
+            #if j > i:
+            #    df.iloc[i, j] = pd.NA
 
             # Like parametre
-            elif value_to_param[v_row] == value_to_param[v_col]:
+            if row_entry["param_id"] == col_entry["param_id"]:
                 df.iloc[i, j] = pd.NA
     
     df = df.dropna(axis=0, how="all") 
     df = df.dropna(axis=1, how="all")
+
+    df.index = pd.MultiIndex.from_tuples(
+        df.index,
+        names=["Parameter", "Verdi"],
+    )
+    df.columns = pd.MultiIndex.from_tuples(
+        df.columns,
+        names=["Parameter (kol)", "Verdi (kol)"],
+    )
 
     return df
 
@@ -57,7 +90,7 @@ def empty_value_cc_matrix(params):
 
 
 def fill_value_inconsistencies(df, inconsistent_combinations, params):
-    value_name_by_id = get_value_name_by_id(params)
+    _, label_by_value_id = value_axis_metadata(params)
 
     for combo in inconsistent_combinations:
         combo_vals = combo["combination_values"]
@@ -69,11 +102,13 @@ def fill_value_inconsistencies(df, inconsistent_combinations, params):
         (_, v1_ids), (_, v2_ids) = combo_vals.items()
 
         for v1_id, v2_id in product(v1_ids, v2_ids):
-            v1 = value_name_by_id[v1_id]
-            v2 = value_name_by_id[v2_id]
+            label_v1 = label_by_value_id.get(v1_id)
+            label_v2 = label_by_value_id.get(v2_id)
+            if label_v1 is None or label_v2 is None:
+                continue
 
-            #df.loc[v1, v2] = 1
-            df.loc[v2, v1] = True
+            df.loc[label_v2, label_v1] = True
+            df.loc[label_v1, label_v2] = True
 
     return df
 
@@ -158,6 +193,7 @@ def inconsistent_combinations():
             column_config={"_combination_id": None},
             disabled=param_columns + ["Kommentar"],
             key="inconsistent_combinations_editor",
+            height="content"
         )
         st.caption("For å slette en tidligere registrert kombinasjon, marker raden i venstre kolonne og trykk *Delete*.")
         remaining_ids = set(edited_table_df["_combination_id"].dropna().tolist())
@@ -182,6 +218,6 @@ def inconsistent_combinations():
             st.session_state.inconsistent_combinations,
             st.session_state.params,
         )
-        st.dataframe(filled_cc_matrix)
+        st.dataframe(filled_cc_matrix, height="content")
 
         return table_df
