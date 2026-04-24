@@ -121,17 +121,34 @@ def inconsistent_combinations():
             st.caption("Velg verdier som ikke kan kombineres med hverandre")
             form_reset_id = st.session_state.get("inconsistent_form_reset_id", 0)
 
+            selected_by_param: dict[str, set[str]] = {}
+            for param in st.session_state.params:
+                param_id = param["param_id"]
+                selection_key = f"value_selector_{param_id}_{form_reset_id}"
+                selected_by_param[param_id] = set(st.session_state.get(selection_key) or [])
+
             # Build a pairwise inconsistency lookup from already-registered combinations
             inconsistency_map: dict[str, set[str]] = {}
+            multi_param_combos: list[dict[str, set[str]]] = []
             for combo in st.session_state.inconsistent_combinations:
                 combo_vals = combo["combination_values"]
-                if len(combo_vals) != 2:
-                    continue # Only 2-parameter combinations are used for filtering
-                (_, v1_ids), (_, v2_ids) = combo_vals.items()
-                for v1 in v1_ids:
-                    for v2 in v2_ids:
-                        inconsistency_map.setdefault(v1, set()).add(v2)
-                        inconsistency_map.setdefault(v2, set()).add(v1)
+                normalized_combo_vals = {
+                    param_id: set(value_ids)
+                    for param_id, value_ids in combo_vals.items()
+                    if value_ids
+                }
+                if len(normalized_combo_vals) < 2:
+                    continue
+
+                if len(normalized_combo_vals) == 2:
+                    (_, v1_ids), (_, v2_ids) = normalized_combo_vals.items()
+                    for v1 in v1_ids:
+                        for v2 in v2_ids:
+                            inconsistency_map.setdefault(v1, set()).add(v2)
+                            inconsistency_map.setdefault(v2, set()).add(v1)
+                    continue
+
+                multi_param_combos.append(normalized_combo_vals)
 
             value_selectors = {}
             for param in st.session_state.params:
@@ -152,14 +169,43 @@ def inconsistent_combinations():
                 excluded: set[str] = set()
                 for selected_val in selected_from_others:
                     excluded.update(inconsistency_map.get(selected_val, set()))
+                current_selection = st.session_state.get(key) or []
+
+                for value_id in value_ids:
+                    if value_id in excluded:
+                        continue
+
+                    candidate_selection = set(current_selection)
+                    candidate_selection.add(value_id)
+
+                    for combo_vals in multi_param_combos:
+                        if param["param_id"] not in combo_vals:
+                            continue
+                        if not candidate_selection.intersection(combo_vals[param["param_id"]]):
+                            continue
+
+                        combo_is_matched = True
+                        for combo_param_id, combo_value_ids in combo_vals.items():
+                            if combo_param_id == param["param_id"]:
+                                selected_for_combo_param = candidate_selection
+                            else:
+                                selected_for_combo_param = selected_by_param.get(combo_param_id, set())
+
+                            if not selected_for_combo_param.intersection(combo_value_ids):
+                                combo_is_matched = False
+                                break
+
+                        if combo_is_matched:
+                            excluded.add(value_id)
+                            break
 
                 available_value_ids = [vid for vid in value_ids if vid not in excluded]
 
                 # Remove stale selections (values that are no longer available).
-                current_selection = st.session_state.get(key) or []
                 cleaned_selection = [v for v in current_selection if v in available_value_ids]
                 if cleaned_selection != current_selection:
                     st.session_state[key] = cleaned_selection
+                selected_by_param[param["param_id"]] = set(cleaned_selection)
 
                 value_selector = st.pills(
                     f"**{param['param_name']}**",
@@ -170,7 +216,8 @@ def inconsistent_combinations():
                 )
                 value_selectors[param["param_id"]] = value_selector
 
-            st.caption("Verdier skjules hvis de er parvis inkonsistente med en allerede valgt verdi")
+            st.caption("Verdier skjules hvis de er inkonsistente med en allerede valgt verdi eller en kombinasjon av valgte verdier")
+
             comment_key = f"inconsistent_combination_comment_{form_reset_id}"
             comment = st.text_input(
                 "**Kommentar**",
