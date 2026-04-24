@@ -117,28 +117,67 @@ def inconsistent_combinations():
     if st.session_state.n_combinations[0] == 0:
         st.info("Ingen mulige kombinasjoner.")
     else:
-        with st.form("inconsistent_combinations_form", clear_on_submit=True):
+        with st.container(border=True):
             st.caption("Velg verdier som ikke kan kombineres med hverandre")
+            form_reset_id = st.session_state.get("inconsistent_form_reset_id", 0)
+
+            # Build a pairwise inconsistency lookup from already-registered combinations
+            inconsistency_map: dict[str, set[str]] = {}
+            for combo in st.session_state.inconsistent_combinations:
+                combo_vals = combo["combination_values"]
+                if len(combo_vals) != 2:
+                    continue # Only 2-parameter combinations are used for filtering
+                (_, v1_ids), (_, v2_ids) = combo_vals.items()
+                for v1 in v1_ids:
+                    for v2 in v2_ids:
+                        inconsistency_map.setdefault(v1, set()).add(v2)
+                        inconsistency_map.setdefault(v2, set()).add(v1)
+
             value_selectors = {}
             for param in st.session_state.params:
                 values = param["values"]
                 value_ids = [value["value_id"] for value in values]
                 value_names_by_id = get_value_name_by_id([param])
+                key = f"value_selector_{param['param_id']}_{form_reset_id}"
+
+                # Collect values currently selected in all OTHER parameters
+                selected_from_others: set[str] = set()
+                for other_param in st.session_state.params:
+                    if other_param["param_id"] == param["param_id"]:
+                        continue
+                    other_key = f"value_selector_{other_param['param_id']}_{form_reset_id}"
+                    selected_from_others.update(st.session_state.get(other_key) or [])
+
+                # Values that are inconsistent with any already-selected value.
+                excluded: set[str] = set()
+                for selected_val in selected_from_others:
+                    excluded.update(inconsistency_map.get(selected_val, set()))
+
+                available_value_ids = [vid for vid in value_ids if vid not in excluded]
+
+                # Remove stale selections (values that are no longer available).
+                current_selection = st.session_state.get(key) or []
+                cleaned_selection = [v for v in current_selection if v in available_value_ids]
+                if cleaned_selection != current_selection:
+                    st.session_state[key] = cleaned_selection
+
                 value_selector = st.pills(
                     f"**{param['param_name']}**",
-                    value_ids,
+                    available_value_ids,
                     selection_mode="multi",
                     format_func=lambda value_id, names=value_names_by_id: names[value_id],
-                    key=f"value_selector_{param['param_id']}",
+                    key=key,
                 )
                 value_selectors[param["param_id"]] = value_selector
+
+            st.caption("Verdier skjules hvis de er parvis inkonsistente med en allerede valgt verdi")
+            comment_key = f"inconsistent_combination_comment_{form_reset_id}"
             comment = st.text_input(
                 "**Kommentar**",
                 placeholder="Skriv inn kommentar",
-                key="inconsistent_combination_comment",
+                key=comment_key,
             )
-            submit_inconsistent_combination = st.form_submit_button("Registrer inkonsistens")
-            if submit_inconsistent_combination:
+            if st.button("Registrer inkonsistens"):
                 combination_values = {
                     param_id: selected_value_ids
                     for param_id, selected_value_ids in value_selectors.items()
@@ -154,9 +193,11 @@ def inconsistent_combinations():
                             "comment": comment.strip(),
                         }
                     )
+                    # Force fresh widget keys on next run to fully reset pills and comment.
+                    st.session_state["inconsistent_form_reset_id"] = form_reset_id + 1
                     st.rerun()
     
-    st.subheader("Registrerte inkonsistente kombinasjoner")
+    st.subheader("Inkonsistente kombinasjoner")
     if not st.session_state.inconsistent_combinations:
         st.info("Ingen inkonsistente kombinasjoner registrert.")
         st.session_state.inconsistent_combinations_df = pd.DataFrame()
