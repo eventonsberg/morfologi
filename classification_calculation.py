@@ -1,4 +1,6 @@
 import streamlit as st
+import pandas as pd
+from helpers import get_param_name_by_id, get_value_name_by_id
 from itertools import combinations
 from typing import Dict, Set
 from collections import defaultdict
@@ -181,15 +183,15 @@ def compute_persistence(concepts, attr_freq):
     return persistence
 
 
-def rescale_persistence_0_1(persistence, tol=1e-9):
+def rescale_persistence_0_1(persistence, tol=1e-9, min_value=None, max_value=None):
 
     finite_vals = [p for p in persistence.values() if p is not None]
 
     if not finite_vals:
         return persistence.copy()
 
-    p_min = min(finite_vals)
-    p_max = max(finite_vals)
+    p_min = min_value if min_value is not None else min(finite_vals)
+    p_max = max_value if max_value is not None else max(finite_vals)
 
     # avoid division by zero if all values are equal
     if abs(p_max - p_min) < tol:
@@ -206,15 +208,33 @@ def rescale_persistence_0_1(persistence, tol=1e-9):
         for cid, p in persistence.items()
     }
 
-# Konsept-verdi (slik at man enkelt senere kan endre på denne
-
-def concept_score(cid, concepts, persistence):
-
-    return persistence[cid]
 
 def overlap(c1, c2):
     e1, e2 = c1["extent"], c2["extent"]
     return len(e1 & e2) / min(len(e1), len(e2))
+
+
+def generate_concept_score_df(concepts, persistence, concept_labels=None):
+
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+
+    data = []
+    for cid, concept in concepts.items():
+        intent_descriptions = []
+        for intent in concept["intent"]:
+            param_id, value_id = intent.split(" = ")
+            param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+            value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+            intent_descriptions.append(f"{param_name} = {value_name}")
+        concept_name = (concept_labels or {}).get(cid, "")
+        data.append({
+            "Konsept": concept_name,
+            "Kombinasjoner": len(concept["extent"]),
+            "Konseptverdi": persistence[cid],
+            "Egenskaper": intent_descriptions,
+        })
+    return pd.DataFrame(data)
 
 
 # ----- GRAPHVIZ -----

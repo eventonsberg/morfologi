@@ -9,6 +9,7 @@ from classification_calculation import (
     weighted_abstraction_loss,
     compute_persistence,
     rescale_persistence_0_1,
+    generate_concept_score_df,
     transform_nodes_to_graphviz,
     transform_edges_to_graphviz,
     generate_graphviz_legend,
@@ -75,8 +76,27 @@ def classification():
         st.session_state.n_concepts = len(concepts)
         edges = compute_edges(concepts)
         attribute_frequencies = compute_attribute_frequencies(concepts)
-        persistence = compute_persistence(concepts, attribute_frequencies)
-        persistence = rescale_persistence_0_1(persistence)
+        raw_persistence = compute_persistence(concepts, attribute_frequencies)
+        raw_edge_losses = {
+            (child, parent): weighted_abstraction_loss(
+                concepts[child],
+                concepts[parent],
+                attribute_frequencies,
+                st.session_state.classification_params,
+            )
+            for child, parent in edges
+        }
+
+        shared_values = [
+            value
+            for value in list(raw_persistence.values()) + list(raw_edge_losses.values())
+            if value is not None
+        ]
+        shared_min = min(shared_values) if shared_values else None
+        shared_max = max(shared_values) if shared_values else None
+
+        persistence = rescale_persistence_0_1(raw_persistence, min_value=shared_min, max_value=shared_max)
+        edge_losses = rescale_persistence_0_1(raw_edge_losses, min_value=shared_min, max_value=shared_max)
         best_solution = compute_optimal_average_selection(
             concepts,
             persistence,
@@ -100,17 +120,7 @@ def classification():
             else:
                 concept_number += 1
                 concept_labels[intent_tuple] = f"_konsept_{concept_number}"
-
-        edge_losses = {
-            (child, parent): weighted_abstraction_loss(
-                concepts[child],
-                concepts[parent],
-                attribute_frequencies,
-                st.session_state.classification_params,
-            )
-            for child, parent in edges
-        }
-        edge_losses = rescale_persistence_0_1(edge_losses)
+        st.session_state.concept_score_df = generate_concept_score_df(concepts, persistence, concept_labels)
         graphviz_nodes = transform_nodes_to_graphviz(
             concepts,
             selected_concepts=selected_concepts,
@@ -247,3 +257,10 @@ def classification():
         ):
             st.graphviz_chart(st.session_state.concepts_graph)
             st.graphviz_chart(generate_graphviz_legend())
+    
+    concept_score_df = st.session_state.get("concept_score_df", None)
+    if concept_score_df is not None:
+        sorted_concept_score_df = concept_score_df.sort_values(by="Konseptverdi", ascending=False)
+        st.divider()
+        st.header("Konsepter")
+        st.dataframe(sorted_concept_score_df, hide_index=True)
