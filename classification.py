@@ -6,14 +6,14 @@ from classification_calculation import (
     sync_concept_register,
     compute_edges,
     compute_attribute_frequencies,
+    weighted_abstraction_loss,
     compute_persistence,
     rescale_persistence_0_1,
-    abstraction_loss,
-    select_portfolio,
     transform_nodes_to_graphviz,
     transform_edges_to_graphviz,
     generate_graphviz_legend,
 )
+from classification_optimization import compute_optimal_average_selection, build_score_history_chart
 from helpers import (
     get_param_name_by_id,
     get_value_name_by_id,
@@ -41,39 +41,30 @@ def classification():
     classification_params = st.session_state.classification_params
 
     with st.form("classification_params_form"):
-        tau = st.slider(
-            "Minste tillatte konseptverdi",
-            min_value=0.00,
-            max_value=1.00,
-            value=float(classification_params.get("persistence_threshold", 0.00)),
-            step=0.01
+        st.markdown(
+            "**Parametervekter**",
+            help="Juster parametervektene hvis du ønsker å prioritere visse egenskaper under klassifiseringen."
         )
-        epsilon = st.slider(
-            "Maksimalt tillatt overlapp mellom klasser",
-            min_value=0.00,
-            max_value=1.00,
-            value=float(classification_params.get("overlap_epsilon", 0.00)),
-            step=0.01
-        )
-        alpha = st.slider(
-            "Minste tillatte antall kombinasjoner i en klasse",
-            min_value=1,
-            max_value=len(possible_combinations),
-            value=min(int(classification_params.get("min_class_size", 1)), len(possible_combinations)),
-            step=1
-        )
-        patch_uncovered = st.checkbox(
-            "Legg til klasser for enkeltkombinasjoner som ikke er dekket",
-            value=classification_params.get("patch_uncovered", False)
-        )
+        param_weights = {}
+        for param in st.session_state.params:
+            param_id = param["param_id"]
+            param_name = param["param_name"]
+            param_weight_key = f"weight_{param_id}"
+            param_weights[param_id] = st.slider(
+                param_name,
+                min_value=0.00,
+                max_value=1.00,
+                value=float(classification_params.get(param_weight_key, 0.50)),
+                step=0.01
+            )
+
         update_classification = st.form_submit_button("Oppdater klassifisering", type="primary")
 
     if update_classification:
+        score_plot_placeholder = st.empty()
+        score_history = []
         st.session_state.classification_params = {
-            "persistence_threshold": tau,
-            "overlap_epsilon": epsilon,
-            "min_class_size": alpha,
-            "patch_uncovered": patch_uncovered,
+            f"{param_id}": weight for param_id, weight in param_weights.items()
         }
         configurations = {}
         for combination in possible_combinations:
@@ -83,17 +74,17 @@ def classification():
         concepts = compute_formal_concepts(configurations)
         st.session_state.n_concepts = len(concepts)
         edges = compute_edges(concepts)
-        
         attribute_frequencies = compute_attribute_frequencies(concepts)
-        persistence = compute_persistence(concepts, edges, attribute_frequencies)
+        persistence = compute_persistence(concepts, attribute_frequencies)
         persistence = rescale_persistence_0_1(persistence)
-        params = {
-            "persistence_threshold": tau,
-            "overlap_epsilon": epsilon,
-            "min_class_size": alpha,
-            "patch_uncovered": patch_uncovered,
-        }
-        selected_concepts = select_portfolio(concepts, persistence, params)
+        best_solution = compute_optimal_average_selection(
+            concepts,
+            persistence,
+            score_plot_placeholder=score_plot_placeholder,
+            score_history_output=score_history,
+        )
+        st.session_state.optimal_score_history = score_history
+        selected_concepts = best_solution["selection"] if best_solution else []
         if len(selected_concepts) == 0:
             st.session_state.pending_classification_toast = True
         st.session_state.selected_concept_intents = set(
@@ -111,10 +102,11 @@ def classification():
                 concept_labels[intent_tuple] = f"_konsept_{concept_number}"
 
         edge_losses = {
-            (child, parent): abstraction_loss(
+            (child, parent): weighted_abstraction_loss(
                 concepts[child],
                 concepts[parent],
-                attribute_frequencies
+                attribute_frequencies,
+                st.session_state.classification_params,
             )
             for child, parent in edges
         }
@@ -142,6 +134,13 @@ def classification():
             st.session_state.selected_concept_intents,
         )
         st.rerun()
+
+    stored_score_history = st.session_state.get("optimal_score_history", [])
+    if stored_score_history:
+        history_chart = build_score_history_chart(stored_score_history)
+        if history_chart is not None:
+            st.altair_chart(history_chart)
+            st.caption("Beregningen stopper hvis beste gjennomsnittscore ikke endres i løpet av 10 påfølgende iterasjoner.")
     
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     col1.header("Kombinasjonsklasser")

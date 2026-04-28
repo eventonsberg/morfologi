@@ -148,51 +148,39 @@ def compute_attribute_frequencies(concepts):
             total += 1
     return {a: freq[a] / total for a in freq}
 
-def abstraction_loss(c_child, c_parent, attr_freq):
+def get_param_from_attribute(attr: str) -> str:
+    return attr.split("=", 1)[0].strip()
 
-    dropped_attrs = c_child["intent"] - c_parent["intent"]
+def weighted_abstraction_loss(child, parent, attr_freq, param_weights):
 
-    # Cost: sum of inverse attribute frequencies
-    return sum(1 / (attr_freq.get(a, 1e-6)) for a in dropped_attrs)
+    dropped = child["intent"] - parent["intent"]
+    loss = 0.0
 
-def compute_persistence(concepts, edges, attr_freq):
+    for a in dropped:
+        freq = attr_freq[a]
+        param = get_param_from_attribute(a)
+        weight = param_weights.get(param, 1.0)  # default weight = 1.0
+        loss += weight * (1.0 / freq)
 
-    graph = defaultdict(list)
-    for child, parent in edges:
-        cost = abstraction_loss(
-            concepts[child],
-            concepts[parent],
-            attr_freq
-        )
-        graph[child].append((parent, cost))
+    return loss
+
+def compute_persistence(concepts, attr_freq):
 
     persistence = {}
+    PARAMETER_WEIGHTS = st.session_state.classification_params
 
-    for start in concepts:
-        # Dijkstra from this concept upward
-        dist = {start: 0.0}
-        pq = [(0.0, start)]
+    for cid, c in concepts.items():
         best = math.inf
-
-        while pq:
-            d, u = heapq.heappop(pq)
-            if d >= best:
+        for pid, p in concepts.items():
+            if c is p:
                 continue
-
-            # first encounter of a *strictly more abstract* concept
-            if len(concepts[u]["extent"]) > len(concepts[start]["extent"]):
-                best = d
-                break
-
-            for v, cost in graph.get(u, []):
-                nd = d + cost
-                if nd < dist.get(v, math.inf):
-                    dist[v] = nd
-                    heapq.heappush(pq, (nd, v))
-
-        persistence[start] = best if best < math.inf else None
+            if c["extent"].issubset(p["extent"]) and c["extent"] != p["extent"]:
+                loss = weighted_abstraction_loss(c, p, attr_freq, PARAMETER_WEIGHTS)
+                best = min(best, loss)
+        persistence[cid] = 0.0 if best is math.inf else best
 
     return persistence
+
 
 def rescale_persistence_0_1(persistence, tol=1e-9):
 
@@ -230,52 +218,6 @@ def overlap(c1, c2):
     return len(e1 & e2) / min(len(e1), len(e2))
 
 
-def select_portfolio(concepts, persistence, params):
-    tau = params["persistence_threshold"]
-    epsilon = params["overlap_epsilon"]
-    alpha = params["min_class_size"]
-    patch_uncovered = params["patch_uncovered"]
-
-    # Step 1: candidate pool
-    candidates = [
-        cid for cid, c in concepts.items()
-        if persistence[cid] is not None
-        and persistence[cid] >= tau
-        and len(c["extent"]) >= alpha
-    ]
-
-    # Step 2: rank candidates
-    candidates.sort(
-        key=lambda cid: concept_score(cid, concepts, persistence),
-        reverse=True
-    )
-
-    selected = []
-    uncovered = set().union(*[c["extent"] for c in concepts.values()])
-
-    # Step 3: greedy selection
-    for cid in candidates:
-        if all(
-            overlap(concepts[cid], concepts[s]) <= epsilon
-            for s in selected
-        ):
-            selected.append(cid)
-            uncovered -= concepts[cid]["extent"]
-
-        if not uncovered:
-            break
-
-    # Step 4: patch uncovered
-    if patch_uncovered:
-        for cid, c in concepts.items():
-            if len(c["extent"]) == 1:
-                g = next(iter(c["extent"]))
-                if g in uncovered:
-                    selected.append(cid)
-                    uncovered.remove(g)
-
-    return set(selected)
-
 # ----- GRAPHVIZ -----
 
 def score_to_red_green_hex(score, min_score, max_score, tol=1e-9):
@@ -288,7 +230,6 @@ def score_to_red_green_hex(score, min_score, max_score, tol=1e-9):
         t = (float(score) - float(min_score)) / (float(max_score) - float(min_score))
 
     t = max(0.0, min(1.0, t))
-    # Keep a clearly saturated green->red ramp, but avoid neon brightness.
     low_rgb = (0, 220, 0)      # readable dark green
     high_rgb = (255, 0, 0)     # readable deep red
     red = int(low_rgb[0] + t * (high_rgb[0] - low_rgb[0]))

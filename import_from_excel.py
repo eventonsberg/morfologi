@@ -88,7 +88,7 @@ def transform_excel_data_to_session_state(
 
     st.session_state.concepts = {}
     for _, row in concepts_df.iterrows():
-        concept_name = row.get("Konseptnavn", "")
+        concept_name = row.get("Navn", "")
         if pd.isna(concept_name):
             continue
         concept_name = str(concept_name).strip()
@@ -120,10 +120,13 @@ def transform_excel_data_to_session_state(
     st.session_state.classification_params = {}
     for _, row in classification_params_df.iterrows():
         param_name = row.get("Parameter", "")
-        value = row.get("Verdi", "")
-        if pd.isna(param_name) or pd.isna(value):
+        param_id = param_name_to_id.get(str(param_name).strip())
+        if not param_id:
             continue
-        st.session_state.classification_params[str(param_name).strip()] = str(value).strip()
+        weight = row.get("Vekt", "")
+        if pd.isna(param_name) or pd.isna(weight):
+            continue
+        st.session_state.classification_params[f"weight_{param_id}"] = float(weight)
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -145,7 +148,7 @@ def import_from_excel():
         descriptions_df = pd.read_excel(xls, sheet_name='Beskrivelser', engine="openpyxl")
         inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
         concepts_df = pd.read_excel(xls, sheet_name='Klasser', engine="openpyxl")
-        classification_params_df = pd.read_excel(xls, sheet_name='Klassifiseringsparametre', engine="openpyxl")
+        classification_params_df = pd.read_excel(xls, sheet_name='Parametervekter', engine="openpyxl")
         transform_excel_data_to_session_state(
             params_and_values_df,
             descriptions_df,

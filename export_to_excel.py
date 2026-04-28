@@ -60,17 +60,17 @@ def export_to_excel():
             value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
             intent_descriptions.append(f"{param_name} = {value_name}")
         concepts_data.append({
-            "Konseptnavn": concept_name,
+            "Navn": concept_name,
             "Egenskaper": "; ".join(intent_descriptions),
             "Antall kombinasjoner": len(concept_extent)
         })
     concepts_df = pd.DataFrame(concepts_data)
 
     classification_params_data = []
-    for param_name, param_value in st.session_state.classification_params.items():
+    for param_id, param_value in st.session_state.classification_params.items():
         classification_params_data.append({
-            "Parameter": param_name,
-            "Verdi": str(param_value)
+            "Parameter": param_name_by_id.get(param_id, f"Param {param_id}"),
+            "Vekt": str(param_value)
         })
     classification_params_df = pd.DataFrame(classification_params_data)
 
@@ -81,7 +81,7 @@ def export_to_excel():
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
         concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
-        classification_params_df.to_excel(writer, index=False, sheet_name='Klassifiseringsparametre')
+        classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
     excel_data = output.getvalue()
     
     st.header("Lagre analyse")
