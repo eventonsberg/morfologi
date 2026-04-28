@@ -181,6 +181,7 @@ def classification():
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
     concept_name_changed = False
+    concept_name_updates = {}
     for concept_intent_tuple, concept_info in st.session_state.concepts.items():
         if concept_intent_tuple in st.session_state.selected_concept_intents:
             concept_widget_key = "concept_name_" + ("|".join(concept_intent_tuple) if concept_intent_tuple else "__no_intent__")
@@ -194,6 +195,7 @@ def classification():
             if concept_name_input != current_name:
                 concept_name_changed = True
                 st.session_state.concepts[concept_intent_tuple]["name"] = concept_name_input
+                concept_name_updates[concept_intent_tuple] = concept_name_input
             combination_frozensets = concept_info["extent"]
 
             caption = ":small[:gray[Kombinasjoner: ]]"
@@ -229,6 +231,23 @@ def classification():
             st.divider()
 
     if concept_name_changed:
+        concept_score_df = st.session_state.get("concept_score_df")
+        if concept_score_df is not None and not concept_score_df.empty:
+            updated_concept_score_df = concept_score_df.copy()
+            for concept_intent_tuple, concept_name in concept_name_updates.items():
+                intent_descriptions = []
+                for intent in sorted(concept_intent_tuple):
+                    param_id, value_id = intent.split(" = ")
+                    param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+                    value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+                    intent_descriptions.append(f"{param_name} = {value_name}")
+
+                concept_mask = updated_concept_score_df["Egenskaper"].apply(
+                    lambda row_value, expected=intent_descriptions: isinstance(row_value, list) and row_value == expected
+                )
+                updated_concept_score_df.loc[concept_mask, "Konsept"] = concept_name
+
+            st.session_state.concept_score_df = updated_concept_score_df
         st.rerun()
 
     if st.session_state.concepts_graph:

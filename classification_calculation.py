@@ -221,17 +221,22 @@ def generate_concept_score_df(concepts, persistence, concept_labels=None):
 
     data = []
     for cid, concept in concepts.items():
+        intent_values = concept.get("intent")
+        if intent_values is None:
+            intent_values = set(cid) if isinstance(cid, tuple) else set()
+
         intent_descriptions = []
-        for intent in concept["intent"]:
+        for intent in sorted(intent_values):
             param_id, value_id = intent.split(" = ")
             param_name = param_name_by_id.get(param_id, f"Param {param_id}")
             value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
             intent_descriptions.append(f"{param_name} = {value_name}")
-        concept_name = (concept_labels or {}).get(cid, "")
+
+        concept_name = (concept_labels or {}).get(cid, concept.get("name", ""))
         data.append({
             "Konsept": concept_name,
             "Kombinasjoner": len(concept["extent"]),
-            "Konseptverdi": persistence[cid],
+            "Konseptverdi": persistence.get(cid),
             "Egenskaper": intent_descriptions,
         })
     return pd.DataFrame(data)
