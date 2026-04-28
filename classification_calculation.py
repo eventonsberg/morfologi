@@ -7,7 +7,6 @@ from helpers import (
     get_value_name_by_id,
 )
 import math
-import heapq
 
 
 def is_auto_concept_name(name: str) -> bool:

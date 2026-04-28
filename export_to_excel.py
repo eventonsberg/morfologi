@@ -30,17 +30,58 @@ def export_to_excel():
             })
     descriptions_df = pd.DataFrame(descriptions_data)
 
-    inconsistent_combinations_df = st.session_state.get("inconsistent_combinations_df", pd.DataFrame())
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+    param_columns = [param["param_name"] for param in st.session_state.params]
+
+    inconsistent_rows = []
+    for combination in st.session_state.get("inconsistent_combinations", []):
+        row = {
+            "_combination_id": combination.get("combination_id", ""),
+            **{param_name: [] for param_name in param_columns},
+        }
+        for param_id, value_ids in combination.get("combination_values", {}).items():
+            param_name = param_name_by_id.get(param_id)
+            if not param_name:
+                continue
+            row[param_name] = [
+                value_name_by_id.get(value_id, f"Ukjent verdi ({value_id})")
+                for value_id in value_ids
+            ]
+        row["Kommentar"] = combination.get("comment", "")
+        inconsistent_rows.append(row)
+
+    inconsistent_combinations_df = pd.DataFrame(
+        inconsistent_rows,
+        columns=["_combination_id", *param_columns, "Kommentar"],
+    )
     clean_inconsistent_combinations_df = inconsistent_combinations_df.copy()
     if not clean_inconsistent_combinations_df.empty:
         clean_inconsistent_combinations_df.drop(columns=["_combination_id"], inplace=True)
-        param_columns = [col for col in clean_inconsistent_combinations_df.columns if col != "Kommentar"]
-        for col in param_columns:
+        exported_param_columns = [col for col in clean_inconsistent_combinations_df.columns if col != "Kommentar"]
+        for col in exported_param_columns:
             clean_inconsistent_combinations_df[col] = clean_inconsistent_combinations_df[col].apply(
                 lambda value: "; ".join(value) if isinstance(value, list) else value
             )
 
-    possible_combinations_df = st.session_state.get("possible_combinations_df", pd.DataFrame())
+    possible_rows = []
+    for combination in st.session_state.get("possible_combinations", []):
+        row = {
+            "Kombinasjon nr.": combination.get("combination_number"),
+            **{param_name: "" for param_name in param_columns},
+            "Klassifisering": combination.get("combination_class_names", []),
+        }
+        for param_id, value_id in combination.get("combination_values", {}).items():
+            param_name = param_name_by_id.get(param_id)
+            if not param_name:
+                continue
+            row[param_name] = value_name_by_id.get(value_id, f"Ukjent verdi ({value_id})")
+        possible_rows.append(row)
+
+    possible_combinations_df = pd.DataFrame(
+        possible_rows,
+        columns=["Kombinasjon nr.", *param_columns, "Klassifisering"],
+    )
     clean_possible_combinations_df = possible_combinations_df.copy()
     if not clean_possible_combinations_df.empty:
         clean_possible_combinations_df["Klassifisering"] = clean_possible_combinations_df["Klassifisering"].apply(
@@ -48,8 +89,6 @@ def export_to_excel():
         )
 
     concepts_data = []
-    param_name_by_id = get_param_name_by_id(st.session_state.params)
-    value_name_by_id = get_value_name_by_id(st.session_state.params)
     for concept_intent_tuple, concept_info in st.session_state.concepts.items():
         concept_name = concept_info["name"]
         concept_extent = concept_info["extent"]
