@@ -8,6 +8,7 @@ from itertools import product
 def value_axis_metadata(params):
     entries = []
     label_by_value_id = {}
+    value_name_counts = {}
 
     for param in params:
         param_id = param["param_id"]
@@ -15,12 +16,18 @@ def value_axis_metadata(params):
         for value in param["values"]:
             value_id = value["value_id"]
             value_name = value["value_name"]
-            label = (param_name, value_name)
+            value_name_counts[value_name] = value_name_counts.get(value_name, 0) + 1
+            display_value_name = value_name
+            if value_name_counts[value_name] > 1:
+                display_value_name = f"{value_name} #{value_name_counts[value_name]}"
+
+            label = (param_name, display_value_name)
             entries.append(
                 {
                     "param_id": param_id,
                     "value_id": value_id,
                     "label": label,
+                    "display_value_name": display_value_name,
                 }
             )
             label_by_value_id[value_id] = label
@@ -111,6 +118,73 @@ def fill_value_inconsistencies(df, inconsistent_combinations, params):
             df.loc[label_v1, label_v2] = True
 
     return df
+
+
+def remove_pair_from_inconsistent_combinations(
+    inconsistent_combinations,
+    param_1_id,
+    value_1_id,
+    param_2_id,
+    value_2_id,
+):
+    """Remove one pairwise relation from 2-parameter cartesian-product combinations.
+
+    If a combination represents many pairs (A x B), removing one pair may require
+    splitting that record into up to two records while keeping the same data format.
+    """
+    updated_combinations = []
+    changed = False
+
+    for combo in inconsistent_combinations:
+        combo_vals = combo.get("combination_values", {})
+
+        if (
+            len(combo_vals) != 2
+            or param_1_id not in combo_vals
+            or param_2_id not in combo_vals
+        ):
+            updated_combinations.append(combo)
+            continue
+
+        values_1 = set(combo_vals[param_1_id])
+        values_2 = set(combo_vals[param_2_id])
+
+        if value_1_id not in values_1 or value_2_id not in values_2:
+            updated_combinations.append(combo)
+            continue
+
+        changed = True
+
+        values_1_without = values_1 - {value_1_id}
+        values_2_without = values_2 - {value_2_id}
+
+        # Branch 1: all pairs where param_1 uses any other value.
+        if values_1_without:
+            updated_combinations.append(
+                {
+                    "combination_id": combo["combination_id"],
+                    "combination_values": {
+                        param_1_id: sorted(values_1_without),
+                        param_2_id: sorted(values_2),
+                    },
+                    "comment": combo.get("comment", ""),
+                }
+            )
+
+        # Branch 2: pairs where param_1 keeps value_1 but param_2 drops value_2.
+        if values_2_without:
+            updated_combinations.append(
+                {
+                    "combination_id": str(uuid4()),
+                    "combination_values": {
+                        param_1_id: [value_1_id],
+                        param_2_id: sorted(values_2_without),
+                    },
+                    "comment": combo.get("comment", ""),
+                }
+            )
+
+    return updated_combinations, changed
 
 
 def inconsistent_combinations():
@@ -306,6 +380,126 @@ def inconsistent_combinations():
             st.session_state.inconsistent_combinations,
             st.session_state.params,
         )
-        st.dataframe(filled_cc_matrix, height="content")
+        selection = st.dataframe(
+            filled_cc_matrix,
+            height="content",
+            selection_mode="multi-cell",
+            on_select="rerun",
+        )
+        entries, _ = value_axis_metadata(st.session_state.params)
+        row_label_to_ids = {
+            entry["label"]: (entry["param_id"], entry["value_id"])
+            for entry in entries
+        }
+        display_value_name_to_ids = {
+            entry["display_value_name"]: (entry["param_id"], entry["value_id"], entry["label"])
+            for entry in entries
+        }
+        cells = selection["selection"]["cells"]
+        selected_combinations = []
+        if len(cells) > 0:
+            for cell in cells:
+                row_idx = cell[0]
+                # Identify param_id and value_id based on row index
+                row_label = filled_cc_matrix.index[row_idx]
+                param_1_id, value_1_id = row_label_to_ids.get(row_label, (None, None))
+                param_1_name = param_name_by_id.get(param_1_id, f"Ukjent parameter ({param_1_id})")
+                value_1_name = value_name_by_id.get(value_1_id, f"Ukjent verdi ({value_1_id})")
+
+                display_value_2_name = cell[1]
+                # Identify param_id and value_id based on display value name
+                param_2_id, value_2_id, col_label = display_value_name_to_ids.get(display_value_2_name, (None, None, None))
+                param_2_name = param_name_by_id.get(param_2_id, f"Ukjent parameter ({param_2_id})")
+                value_2_name = value_name_by_id.get(value_2_id, f"Ukjent verdi ({value_2_id})")
+
+                # Get inconsistency value
+                value = filled_cc_matrix.loc[row_label, col_label]
+
+                if param_1_id != param_2_id:
+                    selected_combinations.append({
+                        "param_1": {"id": param_1_id, "name": param_1_name},
+                        "value_1": {"id": value_1_id, "name": value_1_name},
+                        "param_2": {"id": param_2_id, "name": param_2_name},
+                        "value_2": {"id": value_2_id, "name": value_2_name},
+                        "inconsistent": value,
+                    })
+        selected_inconsistencies = [
+            combo for combo in selected_combinations if combo["inconsistent"]
+        ]
+        selected_consistencies = [
+            combo for combo in selected_combinations if not combo["inconsistent"]
+        ]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.container(border=True, height=300):
+                st.markdown("**Valgte konsistente kombinasjoner:**")
+                if len(selected_consistencies) > 0:
+                    for combo in selected_consistencies:
+                        st.markdown(
+                            f":blue-badge[{combo['param_1']['name']} = {combo['value_1']['name']}]"
+                            " <-> "
+                            f":blue-badge[{combo['param_2']['name']} = {combo['value_2']['name']}]"
+                        )
+                    comment = st.text_input(
+                        "Kommentar",
+                        placeholder="Skriv inn kommentar",
+                        label_visibility="collapsed",
+                        key="pairwise_inconsistency_comment",
+                    )
+                    register_button = st.button(
+                        "Registrer inkonsistens",
+                        key="register_pairwise_inconsistency",
+                    )
+                    if register_button:
+                        for combo in selected_consistencies:
+                            combination_values = {
+                                combo["param_1"]["id"]: [combo["value_1"]["id"]],
+                                combo["param_2"]["id"]: [combo["value_2"]["id"]],
+                            }
+                            st.session_state.inconsistent_combinations.append(
+                                {
+                                    "combination_id": str(uuid4()),
+                                    "combination_values": combination_values,
+                                    "comment": comment.strip(),
+                                }
+                            )
+                        st.rerun()
+                else:
+                    st.caption("Ingen valgte.")
+
+        with col2:
+            with st.container(border=True, height=300):
+                st.markdown("**Valgte inkonsistente kombinasjoner:**")
+                if len(selected_inconsistencies) > 0:
+                    for combo in selected_inconsistencies:
+                        st.markdown(
+                            f":blue-badge[{combo['param_1']['name']} = {combo['value_1']['name']}]"
+                            " <-> "
+                            f":blue-badge[{combo['param_2']['name']} = {combo['value_2']['name']}]"
+                        )
+                    remove_button = st.button(
+                        "Fjern inkonsistens",
+                        key="remove_pairwise_inconsistency",
+                    )
+                    if remove_button:
+                        has_changes = False
+                        updated = st.session_state.inconsistent_combinations
+                        for combo in selected_inconsistencies:
+                            updated, changed = remove_pair_from_inconsistent_combinations(
+                                updated,
+                                combo["param_1"]["id"],
+                                combo["value_1"]["id"],
+                                combo["param_2"]["id"],
+                                combo["value_2"]["id"],
+                            )
+                            has_changes = has_changes or changed
+
+                        if has_changes:
+                            st.session_state.inconsistent_combinations = updated
+                            st.rerun()
+                else:
+                    st.caption("Ingen valgte.")
+        
 
         st.session_state.inconsistent_combinations_df = table_df
