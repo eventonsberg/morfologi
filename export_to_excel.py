@@ -113,6 +113,20 @@ def export_to_excel():
         })
     classification_params_df = pd.DataFrame(classification_params_data)
 
+    listed_concepts_data = []
+    for concept_intent_tuple, list_value in st.session_state.listed_concepts.items():
+        intent_descriptions = []
+        for intent in concept_intent_tuple:
+            param_id, value_id = intent.split(" = ")
+            param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+            value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+            intent_descriptions.append(f"{param_name} = {value_name}")
+        listed_concepts_data.append({
+            "Egenskaper": "; ".join(intent_descriptions),
+            "Liste": "RØD" if list_value == "red" else ("GRØNN" if list_value == "green" else "")
+        })
+    listed_concepts_df = pd.DataFrame(listed_concepts_data)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         params_and_values_df.to_excel(writer, index=False, sheet_name='Parametere og verdier')
@@ -121,6 +135,8 @@ def export_to_excel():
         clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
         concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
         classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
+        if not listed_concepts_df.empty:
+            listed_concepts_df.to_excel(writer, index=False, sheet_name='Rød- og grønnlistede konsepter')
     excel_data = output.getvalue()
     
     st.header("Lagre analyse")

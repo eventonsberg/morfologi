@@ -73,6 +73,11 @@ def classification():
                     for param_id, value_id in combination["combination_values"].items()}
             configurations[frozenset(combination["combination_values"].items())] = config
         concepts = compute_formal_concepts(configurations)
+        st.session_state.listed_concepts = {
+            intent_tuple: list_state
+            for intent_tuple, list_state in st.session_state.get("listed_concepts", {}).items()
+            if intent_tuple in concepts and list_state in ("red", "green")
+        }
         st.session_state.n_concepts = len(concepts)
         edges = compute_edges(concepts)
         attribute_frequencies = compute_attribute_frequencies(concepts)
@@ -100,6 +105,7 @@ def classification():
         best_solution = compute_optimal_average_selection(
             concepts,
             persistence,
+            listed_concepts=st.session_state.listed_concepts,
             score_plot_placeholder=score_plot_placeholder,
             score_history_output=score_history,
         )
@@ -126,6 +132,7 @@ def classification():
             selected_concepts=selected_concepts,
             concept_scores=persistence,
             concept_labels=concept_labels,
+            listed_concepts=st.session_state.listed_concepts,
         )
         graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
         st.session_state.concepts_graph = f"""
@@ -230,26 +237,6 @@ def classification():
             st.dataframe(combination_df, height="content")
             st.divider()
 
-    if concept_name_changed:
-        concept_score_df = st.session_state.get("concept_score_df")
-        if concept_score_df is not None and not concept_score_df.empty:
-            updated_concept_score_df = concept_score_df.copy()
-            for concept_intent_tuple, concept_name in concept_name_updates.items():
-                intent_descriptions = []
-                for intent in sorted(concept_intent_tuple):
-                    param_id, value_id = intent.split(" = ")
-                    param_name = param_name_by_id.get(param_id, f"Param {param_id}")
-                    value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
-                    intent_descriptions.append(f"{param_name} = {value_name}")
-
-                concept_mask = updated_concept_score_df["Egenskaper"].apply(
-                    lambda row_value, expected=intent_descriptions: isinstance(row_value, list) and row_value == expected
-                )
-                updated_concept_score_df.loc[concept_mask, "Konsept"] = concept_name
-
-            st.session_state.concept_score_df = updated_concept_score_df
-        st.rerun()
-
     if st.session_state.concepts_graph:
         st.header("Konseptvisualisering")
         graphviz_url = "https://dreampuf.github.io/GraphvizOnline/#" + quote(
@@ -278,8 +265,70 @@ def classification():
             st.graphviz_chart(generate_graphviz_legend())
     
     concept_score_df = st.session_state.get("concept_score_df", None)
+    concept_list_changed = False
     if concept_score_df is not None:
         sorted_concept_score_df = concept_score_df.sort_values(by="Konseptverdi", ascending=False)
         st.divider()
         st.header("Konsepter")
-        st.dataframe(sorted_concept_score_df, hide_index=True)
+        edited_concepts = st.data_editor(
+            sorted_concept_score_df,
+            hide_index=True,
+            column_config={
+                "Konsept": st.column_config.TextColumn(disabled=True),
+                "Kombinasjoner": st.column_config.NumberColumn(disabled=True),
+                "Konseptverdi": st.column_config.NumberColumn(disabled=True),
+                "Egenskaper": st.column_config.ListColumn(disabled=True),
+                "Liste": st.column_config.SelectboxColumn(
+                    options=[
+                        "🟥 RØD",
+                        "🟩 GRØNN",
+                    ],
+                ),
+                "_intent_tuple": None,
+            }
+        )
+        st.caption(
+            "Konsepter som er :red-badge[RØD]-listet kan ikke være en del av klasseutvalget. " \
+            "Konsepter som er :green-badge[GRØNN]-listet må være en del av klasseutvalget." 
+        )
+        for idx, row in edited_concepts.iterrows():
+            intent_tuple = row["_intent_tuple"]
+            list_value = row["Liste"]
+            if list_value == "🟥 RØD":
+                new_list_state = "red"
+            elif list_value == "🟩 GRØNN":
+                new_list_state = "green"
+            else:
+                new_list_state = None
+
+            current_list_state = st.session_state.listed_concepts.get(intent_tuple)
+
+            if current_list_state != new_list_state:
+                if new_list_state is None:
+                    st.session_state.listed_concepts.pop(intent_tuple, None)
+                else:
+                    st.session_state.listed_concepts[intent_tuple] = new_list_state
+                concept_list_changed = True
+
+    if concept_name_changed or concept_list_changed:
+        concept_score_df = st.session_state.get("concept_score_df")
+        if concept_score_df is not None and not concept_score_df.empty:
+            updated_concept_score_df = concept_score_df.copy()
+
+            if concept_name_changed and "_intent_tuple" in updated_concept_score_df.columns:
+                for concept_intent_tuple, concept_name in concept_name_updates.items():
+                    concept_mask = updated_concept_score_df["_intent_tuple"] == concept_intent_tuple
+                    updated_concept_score_df.loc[concept_mask, "Konsept"] = concept_name
+
+            if concept_list_changed and "_intent_tuple" in updated_concept_score_df.columns:
+                for concept_intent_tuple in updated_concept_score_df["_intent_tuple"]:
+                    concept_mask = updated_concept_score_df["_intent_tuple"] == concept_intent_tuple
+                    concept_list_value = st.session_state.listed_concepts.get(concept_intent_tuple)
+                    updated_concept_score_df.loc[concept_mask, "Liste"] = (
+                        "🟥 RØD" if concept_list_value == "red"
+                        else "🟩 GRØNN" if concept_list_value == "green"
+                        else None
+                    )
+
+            st.session_state.concept_score_df = updated_concept_score_df
+        st.rerun()

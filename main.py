@@ -56,6 +56,9 @@ if "concepts" not in st.session_state:
     #   ...
     # }
     st.session_state.concepts = {}
+if "listed_concepts" not in st.session_state:
+    # listed_concepts: dict of {concept_intent_tuple: "red" | "green"}
+    st.session_state.listed_concepts = {}
 if "selected_concept_intents" not in st.session_state:
     # selected_concept_intents: set of concept_intent_tuple
     st.session_state.selected_concept_intents = set()

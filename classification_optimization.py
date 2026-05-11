@@ -41,11 +41,22 @@ def solve_for_k(
    scores,
    conflicts,
    coverage_map,
-   max_k
+   max_k,
+   listed_concepts=None,
 ):
    model = cp_model.CpModel()
 
    x = {c: model.new_bool_var(f"x_{c}") for c in concepts}
+
+   listed_concepts = listed_concepts or {}
+
+   for c, list_state in listed_concepts.items():
+       if c not in x:
+           continue
+       if list_state == "red":
+           model.add(x[c] == 0)
+       elif list_state == "green":
+           model.add(x[c] == 1)
 
    for i, j in conflicts:
        model.add(x[i] + x[j] <= 1)
@@ -72,10 +83,11 @@ def solve_for_k(
 
 
 def compute_optimal_average_selection(
-        concepts,
-        scores,
-        epsilon=0,
-        score_plot_placeholder=None,
+    concepts,
+    scores,
+    epsilon=0,
+    listed_concepts=None,
+    score_plot_placeholder=None,
     score_history_output=None,
     stopping_patience=10,
     ):
@@ -96,7 +108,12 @@ def compute_optimal_average_selection(
 
     for k in range(2, n + 1):
         selected, total_score = solve_for_k(
-            concepts, scores, conflicts, coverage_map, k
+            concepts,
+            scores,
+            conflicts,
+            coverage_map,
+            k,
+            listed_concepts=listed_concepts,
         )
 
         if selected is None or len(selected) == 0:

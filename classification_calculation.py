@@ -218,6 +218,7 @@ def generate_concept_score_df(concepts, persistence, concept_labels=None):
 
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
+    listed_concepts = st.session_state.get("listed_concepts", {})
 
     data = []
     for cid, concept in concepts.items():
@@ -233,11 +234,16 @@ def generate_concept_score_df(concepts, persistence, concept_labels=None):
             intent_descriptions.append(f"{param_name} = {value_name}")
 
         concept_name = (concept_labels or {}).get(cid, concept.get("name", ""))
+        concept_list = listed_concepts.get(cid)
         data.append({
             "Konsept": concept_name,
             "Kombinasjoner": len(concept["extent"]),
             "Konseptverdi": persistence.get(cid),
             "Egenskaper": intent_descriptions,
+            "Liste": "🟥 RØD" if concept_list == "red"
+                else "🟩 GRØNN" if concept_list == "green"
+                else None,
+            "_intent_tuple": cid,
         })
     return pd.DataFrame(data)
 
@@ -278,11 +284,18 @@ def transform_edges_to_graphviz(edges, edge_losses=None):
             graphviz_edges.append(f'"{id1}" -> "{id2}";')
     return "\n".join(graphviz_edges)
 
-def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores=None, concept_labels=None):
+def transform_nodes_to_graphviz(
+    concepts,
+    selected_concepts=None,
+    concept_scores=None,
+    concept_labels=None,
+    listed_concepts=None,
+):
     param_name_by_id = get_param_name_by_id(st.session_state.params)
     value_name_by_id = get_value_name_by_id(st.session_state.params)
     graphviz_nodes = []
     selected = set(selected_concepts or [])
+    listed = listed_concepts or {}
     for concept_id, concept in concepts.items():
         concept_title = (concept_labels or {}).get(concept_id, str(concept_id))
         n_combinations = len(concept["extent"])
@@ -296,7 +309,15 @@ def transform_nodes_to_graphviz(concepts, selected_concepts=None, concept_scores
             intent_text += f"{param_name_by_id[param_id]} = {value_name_by_id[value_id]}<BR/>"
         intent_text = intent_text if intent_lines else "Ingen egenskaper"
         label = f"<<B>{concept_title}</B><BR/>{combinations_text}{score_text}{intent_text}>".replace('"', '\\\\"')
-        if concept_id in selected:
+        if listed.get(concept_id) == "red":
+            graphviz_nodes.append(
+                f'"{concept_id}" [label={label} style="filled" fillcolor="#FFB3B3"];'
+            )
+        elif listed.get(concept_id) == "green":
+            graphviz_nodes.append(
+                f'"{concept_id}" [label={label} style="filled" fillcolor="#B9F6CA"];'
+            )
+        elif concept_id in selected:
             graphviz_nodes.append(
                 f'"{concept_id}" [label={label} style="filled" fillcolor="#7FC3FF"];'
             )

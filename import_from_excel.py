@@ -2,12 +2,17 @@ import streamlit as st
 import pandas as pd
 from uuid import uuid4
 
+
+def normalize_intent_tuple(intent_tuple):
+    return tuple(sorted(intent_tuple))
+
 def transform_excel_data_to_session_state(
     params_and_values_df,
     descriptions_df,
     inconsistent_combinations_df,
     concepts_df,
-    classification_params_df
+    classification_params_df,
+    listed_concepts_df
 ):
     param_descriptions = {}
     value_descriptions_by_param = {}
@@ -110,6 +115,7 @@ def transform_excel_data_to_session_state(
             if not value_id:
                 continue
             intent_tuple += (f"{param_id} = {value_id}",)
+        intent_tuple = normalize_intent_tuple(intent_tuple)
         st.session_state.concepts[intent_tuple] = {
             "name": concept_name,
             "extent": set(),
@@ -127,6 +133,35 @@ def transform_excel_data_to_session_state(
         if pd.isna(param_name) or pd.isna(weight):
             continue
         st.session_state.classification_params[f"weight_{param_id}"] = float(weight)
+
+    st.session_state.listed_concepts = {}
+    for _, row in listed_concepts_df.iterrows():
+        attributes_str = row.get("Egenskaper", "")
+        if pd.isna(attributes_str):
+            continue
+        intent_tuple = tuple()
+        for attr in attributes_str.split(";"):
+            parts = attr.split(" = ")
+            if len(parts) != 2:
+                continue
+            param_name, value_name = parts
+            param_name = param_name.strip()
+            value_name = value_name.strip()
+            param_id = param_name_to_id.get(param_name)
+            if not param_id:
+                continue
+            value_id = value_name_to_id_by_param[param_id].get(value_name)
+            if not value_id:
+                continue
+            intent_tuple += (f"{param_id} = {value_id}",)
+        intent_tuple = normalize_intent_tuple(intent_tuple)
+        list_value = row.get("Liste", "")
+        if pd.isna(list_value):
+            list_value = ""
+        list_value = str(list_value).strip().lower()
+        if list_value not in ["rød", "grønn"]:
+            continue
+        st.session_state.listed_concepts[intent_tuple] = "red" if list_value == "rød" else "green"
 
 def import_from_excel():
     st.header("Last opp tidligere analyse")
@@ -149,12 +184,17 @@ def import_from_excel():
         inconsistent_combinations_df = pd.read_excel(xls, sheet_name='Inkonsistente kombinasjoner', engine="openpyxl")
         concepts_df = pd.read_excel(xls, sheet_name='Klasser', engine="openpyxl")
         classification_params_df = pd.read_excel(xls, sheet_name='Parametervekter', engine="openpyxl")
+        if 'Rød- og grønnlistede konsepter' in xls.sheet_names:
+            listed_concepts_df = pd.read_excel(xls, sheet_name='Rød- og grønnlistede konsepter', engine="openpyxl")
+        else:
+            listed_concepts_df = pd.DataFrame()
         transform_excel_data_to_session_state(
             params_and_values_df,
             descriptions_df,
             inconsistent_combinations_df,
             concepts_df,
-            classification_params_df
+            classification_params_df,
+            listed_concepts_df
         )
         st.session_state.uploader_key = st.session_state.get("uploader_key", 0) + 1
         st.rerun()
