@@ -208,8 +208,9 @@ def classification():
             caption = ":small[:gray[Kombinasjoner: ]]"
             n_combinations = len(combination_frozensets)
             caption += f" :blue-badge[{n_combinations}]"
-            caption += " :small[:gray[Konseptverdi: ]]"
-            caption += f" :blue-badge[{concept_info['value']:.2f}]"
+            if concept_info["value"] is not None:
+                caption += " :small[:gray[Konseptverdi: ]]"
+                caption += f" :blue-badge[{concept_info['value']:.2f}]"
             caption += " :small[:gray[Egenskaper: ]]"
             for intent in concept_intent_tuple:
                 param_id, value_id = intent.split(" = ")

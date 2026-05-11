@@ -1,10 +1,40 @@
 import streamlit as st
 import pandas as pd
 from uuid import uuid4
+from collections import defaultdict
 
 
 def normalize_intent_tuple(intent_tuple):
     return tuple(sorted(intent_tuple))
+
+
+def parse_attributes_to_intent(attributes_str, param_name_to_id, value_name_to_id_by_param):
+    if pd.isna(attributes_str):
+        attributes_str = ""
+    intent_tuple = tuple()
+    for attr in str(attributes_str).split(";"):
+        parts = attr.split(" = ")
+        if len(parts) != 2:
+            continue
+        param_name, value_name = parts
+        param_id = param_name_to_id.get(param_name.strip())
+        if not param_id:
+            continue
+        value_id = value_name_to_id_by_param[param_id].get(value_name.strip())
+        if not value_id:
+            continue
+        intent_tuple += (f"{param_id} = {value_id}",)
+    return normalize_intent_tuple(intent_tuple)
+
+
+def parse_class_names(classification_cell_value):
+    if pd.isna(classification_cell_value):
+        return []
+    return [
+        class_name.strip()
+        for class_name in str(classification_cell_value).split(";")
+        if class_name.strip()
+    ]
 
 def transform_excel_data_to_session_state(
     params_and_values_df,
@@ -12,7 +42,8 @@ def transform_excel_data_to_session_state(
     inconsistent_combinations_df,
     concepts_df,
     classification_params_df,
-    listed_concepts_df
+    listed_concepts_df,
+    possible_combinations_df,
 ):
     param_descriptions = {}
     value_descriptions_by_param = {}
@@ -92,37 +123,78 @@ def transform_excel_data_to_session_state(
         })
 
     st.session_state.concepts = {}
+    concept_name_to_intents = defaultdict(list)
     for _, row in concepts_df.iterrows():
         concept_name = row.get("Navn", "")
         if pd.isna(concept_name):
             continue
         concept_name = str(concept_name).strip()
-        intent_tuple = tuple()
-        attributes_str = row.get("Egenskaper", "")
-        if pd.isna(attributes_str):
-            attributes_str = ""
-        for attr in attributes_str.split(";"):
-            parts = attr.split(" = ")
-            if len(parts) != 2:
-                continue
-            param_name, value_name = parts
-            param_name = param_name.strip()
-            value_name = value_name.strip()
-            param_id = param_name_to_id.get(param_name)
-            if not param_id:
-                continue
-            value_id = value_name_to_id_by_param[param_id].get(value_name)
-            if not value_id:
-                continue
-            intent_tuple += (f"{param_id} = {value_id}",)
-        intent_tuple = normalize_intent_tuple(intent_tuple)
+        intent_tuple = parse_attributes_to_intent(
+            row.get("Egenskaper", ""),
+            param_name_to_id,
+            value_name_to_id_by_param,
+        )
         st.session_state.concepts[intent_tuple] = {
             "name": concept_name,
             "extent": set(),
+            "value": None,
         }
-    st.session_state.selected_concept_intents = set()
+        concept_name_to_intents[concept_name].append(intent_tuple)
+
+    all_combination_keys = set()
+    class_extents_by_name = defaultdict(set)
+    if not possible_combinations_df.empty:
+        for _, row in possible_combinations_df.iterrows():
+            combination_values = {}
+            for col in possible_combinations_df.columns:
+                if col in ["Kombinasjon nr.", "Klassifisering"]:
+                    continue
+                param_id = param_name_to_id.get(str(col).strip())
+                if not param_id:
+                    continue
+                cell_value = row.get(col)
+                if pd.isna(cell_value):
+                    continue
+                value_id = value_name_to_id_by_param[param_id].get(str(cell_value).strip())
+                if value_id:
+                    combination_values[param_id] = value_id
+
+            if not combination_values:
+                continue
+
+            combination_key = frozenset(combination_values.items())
+            all_combination_keys.add(combination_key)
+
+            for class_name in parse_class_names(row.get("Klassifisering", "")):
+                class_extents_by_name[class_name].add(combination_key)
+
+    matched_selected_intents = set()
+    for class_name, class_extent in class_extents_by_name.items():
+        matching_intents = concept_name_to_intents.get(class_name, [])
+        if not matching_intents:
+            continue
+        for intent_tuple in matching_intents:
+            st.session_state.concepts[intent_tuple]["extent"] = set(class_extent)
+            matched_selected_intents.add(intent_tuple)
+
+    if all_combination_keys:
+        for intent_tuple, concept_info in st.session_state.concepts.items():
+            if concept_info["extent"]:
+                continue
+            concept_extent = set()
+            required_pairs = {
+                tuple(intent_part.split(" = ", 1))
+                for intent_part in intent_tuple
+                if " = " in intent_part
+            }
+            for combination_key in all_combination_keys:
+                if required_pairs.issubset(combination_key):
+                    concept_extent.add(combination_key)
+            concept_info["extent"] = concept_extent
+
+    st.session_state.selected_concept_intents = matched_selected_intents
     st.session_state.concepts_graph = ""
-    st.session_state.n_concepts = 0
+    st.session_state.n_concepts = len(st.session_state.concepts)
     st.session_state.classification_params = {}
     for _, row in classification_params_df.iterrows():
         param_name = row.get("Parameter", "")
@@ -136,25 +208,11 @@ def transform_excel_data_to_session_state(
 
     st.session_state.listed_concepts = {}
     for _, row in listed_concepts_df.iterrows():
-        attributes_str = row.get("Egenskaper", "")
-        if pd.isna(attributes_str):
-            continue
-        intent_tuple = tuple()
-        for attr in attributes_str.split(";"):
-            parts = attr.split(" = ")
-            if len(parts) != 2:
-                continue
-            param_name, value_name = parts
-            param_name = param_name.strip()
-            value_name = value_name.strip()
-            param_id = param_name_to_id.get(param_name)
-            if not param_id:
-                continue
-            value_id = value_name_to_id_by_param[param_id].get(value_name)
-            if not value_id:
-                continue
-            intent_tuple += (f"{param_id} = {value_id}",)
-        intent_tuple = normalize_intent_tuple(intent_tuple)
+        intent_tuple = parse_attributes_to_intent(
+            row.get("Egenskaper", ""),
+            param_name_to_id,
+            value_name_to_id_by_param,
+        )
         list_value = row.get("Liste", "")
         if pd.isna(list_value):
             list_value = ""
@@ -197,14 +255,20 @@ def import_from_excel():
             listed_concepts_df = pd.read_excel(xls, sheet_name='Rød- og grønnlistede konsepter', engine="openpyxl")
         else:
             listed_concepts_df = pd.DataFrame()
-            
+
+        if 'Mulige kombinasjoner' in xls.sheet_names:
+            possible_combinations_df = pd.read_excel(xls, sheet_name='Mulige kombinasjoner', engine="openpyxl")
+        else:
+            possible_combinations_df = pd.DataFrame()
+
         transform_excel_data_to_session_state(
             params_and_values_df,
             descriptions_df,
             inconsistent_combinations_df,
             concepts_df,
             classification_params_df,
-            listed_concepts_df
+            listed_concepts_df,
+            possible_combinations_df,
         )
         st.session_state.uploader_key = st.session_state.get("uploader_key", 0) + 1
         st.rerun()
