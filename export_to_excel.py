@@ -133,8 +133,10 @@ def export_to_excel():
         descriptions_df.to_excel(writer, index=False, sheet_name='Beskrivelser')
         clean_inconsistent_combinations_df.to_excel(writer, index=False, sheet_name='Inkonsistente kombinasjoner')
         clean_possible_combinations_df.to_excel(writer, index=False, sheet_name='Mulige kombinasjoner')
-        concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
-        classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
+        if not concepts_df.empty:
+            concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
+        if not classification_params_df.empty:
+            classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
         if not listed_concepts_df.empty:
             listed_concepts_df.to_excel(writer, index=False, sheet_name='Rød- og grønnlistede konsepter')
     excel_data = output.getvalue()
