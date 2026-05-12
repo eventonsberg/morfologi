@@ -89,6 +89,7 @@ def export_to_excel():
         )
 
     concepts_data = []
+    selected_concept_intents = st.session_state.get("selected_concept_intents", set())
     for concept_intent_tuple, concept_info in st.session_state.concepts.items():
         concept_name = concept_info["name"]
         concept_extent = concept_info["extent"]
@@ -100,8 +101,9 @@ def export_to_excel():
             intent_descriptions.append(f"{param_name} = {value_name}")
         concepts_data.append({
             "Navn": concept_name,
+            "Valgt som klasse": "JA" if concept_intent_tuple in selected_concept_intents else "NEI",
             "Egenskaper": "; ".join(intent_descriptions),
-            "Antall kombinasjoner": len(concept_extent)
+            "Antall kombinasjoner": len(concept_extent),
         })
     concepts_df = pd.DataFrame(concepts_data)
 
