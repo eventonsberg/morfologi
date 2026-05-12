@@ -70,7 +70,8 @@ def params_and_values():
                         placeholder="Skriv inn verdi",
                         key=f"new_value_name_{param['param_id']}",
                     )
-                    submit_value = vform_col2.form_submit_button(":material/add_2:", type="tertiary")
+                    with vform_col2:
+                        submit_value = st.form_submit_button(":material/add_2:", type="tertiary")
                     if submit_value:
                         value_name = new_value_name.strip()
                         if not value_name:
@@ -99,7 +100,8 @@ def params_and_values():
             placeholder="Skriv inn parameternavn",
             label_visibility="collapsed",
         )
-        submit_param = pform_col2.form_submit_button(":material/add_2:", type="tertiary")
+        with pform_col2:
+            submit_param = st.form_submit_button(":material/add_2:", type="tertiary")
         if submit_param:
             param_name = new_param_name.strip()
             if not param_name:
