@@ -348,27 +348,59 @@ def inconsistent_combinations():
             table_rows.append(row)
         editor_columns = ["_combination_id", *param_columns, "Kommentar"]
         table_df = pd.DataFrame(table_rows, columns=editor_columns)
-        edited_table_df = st.data_editor(
+        edited_inconsistency_table_df = st.data_editor(
             table_df,
             hide_index=True,
             num_rows="delete",
             column_config={"_combination_id": None},
-            disabled=param_columns + ["Kommentar"],
+            disabled=param_columns,
             key="inconsistent_combinations_editor",
             height="content"
         )
         st.caption("For å slette en tidligere registrert kombinasjon, marker raden i venstre kolonne og trykk *Delete*.")
-        remaining_ids = set(edited_table_df["_combination_id"].dropna().tolist())
+        current_inconsistent_combinations_by_id = {
+            combination["combination_id"]: combination
+            for combination in st.session_state.inconsistent_combinations
+        }
+        updated_inconsistent_combinations = []
+        has_changes = False
+
+        for _, row in edited_inconsistency_table_df.iterrows():
+            combination_id = row.get("_combination_id")
+            if pd.isna(combination_id):
+                continue
+
+            original_inconsistent_combination = current_inconsistent_combinations_by_id.get(combination_id)
+            if original_inconsistent_combination is None:
+                continue
+
+            new_comment = row.get("Kommentar", "")
+            if pd.isna(new_comment):
+                new_comment = ""
+            else:
+                new_comment = str(new_comment)
+
+            if new_comment != original_inconsistent_combination.get("comment", ""):
+                has_changes = True
+
+            updated_inconsistent_combination = dict(original_inconsistent_combination)
+            updated_inconsistent_combination["comment"] = new_comment
+            updated_inconsistent_combinations.append(updated_inconsistent_combination)
+
         current_ids = {
             combination["combination_id"]
             for combination in st.session_state.inconsistent_combinations
         }
-        if remaining_ids != current_ids:
-            st.session_state.inconsistent_combinations = [
-                combination
-                for combination in st.session_state.inconsistent_combinations
-                if combination["combination_id"] in remaining_ids
-            ]
+        remaining_ids = {
+            combination["combination_id"]
+            for combination in updated_inconsistent_combinations
+        }
+
+        if remaining_ids != current_ids: # an inconsistent combination was deleted
+            has_changes = True
+
+        if has_changes:
+            st.session_state.inconsistent_combinations = updated_inconsistent_combinations
             st.rerun()
 
         st.divider()
