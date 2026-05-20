@@ -69,15 +69,65 @@ if "classification_params" not in st.session_state:
     # classification_params: dict of {param_name: param_value}
     st.session_state.classification_params = {}
 
-st.session_state.possible_combinations = get_possible_combinations(
+def _build_possible_combinations_inputs_key(params, inconsistent_combinations):
+    params_key = tuple(
+        (
+            param["param_id"],
+            tuple(value["value_id"] for value in param["values"]),
+        )
+        for param in params
+    )
+    inconsistent_key = tuple(sorted(
+        tuple(sorted(
+            (
+                param_id,
+                tuple(sorted(value_ids)),
+            )
+            for param_id, value_ids in combination.get("combination_values", {}).items()
+        ))
+        for combination in inconsistent_combinations
+    ))
+    return params_key, inconsistent_key
+
+
+def _build_class_assignment_inputs_key(possible_combinations_key, concepts, selected_concept_intents):
+    selected_intents_key = tuple(sorted(selected_concept_intents))
+    selected_concept_names_key = tuple(
+        (
+            intent,
+            concepts.get(intent, {}).get("name", ""),
+        )
+        for intent in selected_intents_key
+    )
+    return (
+        possible_combinations_key,
+        selected_intents_key,
+        selected_concept_names_key,
+    )
+
+possible_combinations_inputs_key = _build_possible_combinations_inputs_key(
     st.session_state.params,
     st.session_state.inconsistent_combinations,
-)
-update_possible_combinations_with_combination_class_names(
-    st.session_state.possible_combinations,
+) # Key used to avoid unnecessary recomputation
+if st.session_state.get("_possible_combinations_inputs_key") != possible_combinations_inputs_key:
+    st.session_state.possible_combinations = get_possible_combinations(
+        st.session_state.params,
+        st.session_state.inconsistent_combinations,
+    )
+    st.session_state._possible_combinations_inputs_key = possible_combinations_inputs_key
+
+class_assignment_inputs_key = _build_class_assignment_inputs_key(
+    possible_combinations_inputs_key,
     st.session_state.concepts,
     st.session_state.selected_concept_intents,
-)
+) # Key used to avoid unnecessary recomputation
+if st.session_state.get("_class_assignment_inputs_key") != class_assignment_inputs_key:
+    update_possible_combinations_with_combination_class_names(
+        st.session_state.possible_combinations,
+        st.session_state.concepts,
+        st.session_state.selected_concept_intents,
+    )
+    st.session_state._class_assignment_inputs_key = class_assignment_inputs_key
 
 current_n_combinations = len(st.session_state.possible_combinations)
 if current_n_combinations != st.session_state.n_combinations[0]:
