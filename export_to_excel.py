@@ -144,11 +144,13 @@ def generate_excel_data():
     return output.getvalue()
 
 
-@st.dialog("Eksporter til Excel", icon=":material/download:")
+@st.dialog("Eksporter til Excel")
 def export_dialog():
+    st.markdown("Excel-filen er klar. Klikk på knappen under for å laste den ned.")
     st.download_button(
         label="Last ned Excel-fil",
         type="primary",
+        icon=":material/download:",
         data=st.session_state.excel_data,
         file_name="Morfologi.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
