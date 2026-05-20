@@ -3,7 +3,7 @@ import pandas as pd
 from io import BytesIO
 from helpers import get_param_name_by_id, get_value_name_by_id
 
-def export_to_excel():
+def generate_excel_data():
     params_and_values_data = {}
     for param in st.session_state.params:
         param_name = param["param_name"].strip()
@@ -141,13 +141,23 @@ def export_to_excel():
             classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
         if not listed_concepts_df.empty:
             listed_concepts_df.to_excel(writer, index=False, sheet_name='Rød- og grønnlistede konsepter')
-    excel_data = output.getvalue()
-    
-    st.header("Lagre analyse")
+    return output.getvalue()
+
+
+@st.dialog("Eksporter til Excel", icon=":material/download:")
+def export_dialog():
     st.download_button(
-        label="Eksporter til Excel",
-        icon=":material/download:",
-        data=excel_data,
+        label="Last ned Excel-fil",
+        type="primary",
+        data=st.session_state.excel_data,
         file_name="Morfologi.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+def export_to_excel():
+    st.header("Lagre analyse")
+
+    if st.button("Eksporter til Excel", icon=":material/download:"):
+        with st.spinner("Genererer Excel-fil..."):
+            st.session_state.excel_data = generate_excel_data()
+        export_dialog()
