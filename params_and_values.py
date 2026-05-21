@@ -7,18 +7,17 @@ from helpers import (
 
 def params_and_values():
     n_params = len(st.session_state.params)
-    if "params_layout_mode" not in st.session_state:
-        st.session_state.params_layout_mode = "Horisontal visning"
-    elif st.session_state.params_layout_mode not in {"Horisontal visning", "Vertikal visning"}:
-        st.session_state.params_layout_mode = "Horisontal visning"
 
-    st.pills(
-        "Oppsett",
-        options=["Horisontal visning", "Vertikal visning"],
-        key="params_layout_mode",
-        label_visibility="collapsed",
+    st.session_state.setdefault("params_layout_mode", "Horisontal")
+    layout_mode = st.segmented_control(
+        "Visningsmodus",
+        options=["Horisontal", "Vertikal"],
+        default=st.session_state.params_layout_mode,
+        key="params_layout_mode_control",
+        required=True,
     )
-    use_vertical_layout = st.session_state.params_layout_mode == "Vertikal visning"
+    st.session_state.params_layout_mode = layout_mode
+    use_vertical_layout = layout_mode == "Vertikal"
     st.divider()
 
     if n_params:
@@ -188,7 +187,7 @@ def params_and_values():
             st.divider()
 
     if use_vertical_layout:
-        add_param_col, add_value_col = st.columns(2, vertical_alignment="top")
+        add_param_col, _ = st.columns(2, vertical_alignment="top")
 
         with add_param_col:
             with st.form("params_form", clear_on_submit=True, border=False):
@@ -196,7 +195,7 @@ def params_and_values():
                 new_param_name = pform_col1.text_input(
                     "Ny parameter",
                     placeholder="Legg til parameter",
-                    label_visibility="visible",
+                    label_visibility="hidden",
                 )
                 with pform_col2:
                     submit_param = st.form_submit_button(":material/add_2:", type="tertiary")
