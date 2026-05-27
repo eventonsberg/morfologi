@@ -50,23 +50,40 @@ def classification():
         for param in st.session_state.params:
             param_id = param["param_id"]
             param_name = param["param_name"]
-            param_weight_key = f"weight_{param_id}"
             param_weights[param_id] = st.slider(
                 param_name,
                 min_value=0.00,
                 max_value=1.00,
-                value=float(classification_params.get(param_weight_key, 0.50)),
+                value=float(classification_params.get(param_id, 0.50)),
                 step=0.01
             )
-
+        st.markdown(
+            "**Innstillinger for klassifisering**",
+        )
+        param_weights["optimization_strategy"] = st.segmented_control(
+            "Optimeringsstrategi",
+            options=["Høyest gjennomsnittsscore", "Høyest totalscore"],
+            default=classification_params.get("optimization_strategy", "Høyest gjennomsnittsscore"),
+            required=True,
+        )
+        param_weights["max_classes"] = st.number_input(
+            "Maksimalt antall klasser",
+            min_value=2,
+            value=int(classification_params.get("max_classes", 10)),
+            step=1
+        )
         update_classification = st.form_submit_button("Oppdater klassifisering", type="primary")
 
     if update_classification:
         score_plot_placeholder = st.empty()
         score_history = []
         st.session_state.classification_params = {
-            f"{param_id}": weight for param_id, weight in param_weights.items()
+            f"{param_id}": weight
+            for param_id, weight in param_weights.items()
+            if param_id != "optimization_strategy" and param_id != "max_classes"
         }
+        st.session_state.classification_params["optimization_strategy"] = param_weights["optimization_strategy"]
+        st.session_state.classification_params["max_classes"] = param_weights["max_classes"]
         configurations = {}
         for combination in possible_combinations:
             config = {f"{param_id}": value_id

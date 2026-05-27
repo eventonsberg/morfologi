@@ -109,11 +109,27 @@ def generate_excel_data():
 
     classification_params_data = []
     for param_id, param_value in st.session_state.classification_params.items():
+        if param_id in ["optimization_strategy", "max_classes"]:
+            continue
         classification_params_data.append({
             "Parameter": param_name_by_id.get(param_id, f"Param {param_id}"),
             "Vekt": str(param_value)
         })
     classification_params_df = pd.DataFrame(classification_params_data)
+
+    classification_settings_df = pd.DataFrame([
+        {
+            "Innstilling": "Optimeringsstrategi",
+            "Verdi": st.session_state.classification_params.get(
+                "optimization_strategy",
+                "Høyest gjennomsnittsscore",
+            ),
+        },
+        {
+            "Innstilling": "Maksimalt antall klasser",
+            "Verdi": st.session_state.classification_params.get("max_classes", 10),
+        },
+    ])
 
     listed_concepts_data = []
     for concept_intent_tuple, list_value in st.session_state.listed_concepts.items():
@@ -139,6 +155,8 @@ def generate_excel_data():
             concepts_df.to_excel(writer, index=False, sheet_name='Klasser')
         if not classification_params_df.empty:
             classification_params_df.to_excel(writer, index=False, sheet_name='Parametervekter')
+        if not classification_settings_df.empty:
+            classification_settings_df.to_excel(writer, index=False, sheet_name='Innstillinger')
         if not listed_concepts_df.empty:
             listed_concepts_df.to_excel(writer, index=False, sheet_name='Rød- og grønnlistede konsepter')
     return output.getvalue()

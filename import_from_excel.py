@@ -42,6 +42,7 @@ def transform_excel_data_to_session_state(
     inconsistent_combinations_df,
     concepts_df,
     classification_params_df,
+    classification_settings_df,
     listed_concepts_df,
     possible_combinations_df,
 ):
@@ -204,7 +205,18 @@ def transform_excel_data_to_session_state(
         weight = row.get("Vekt", "")
         if pd.isna(param_name) or pd.isna(weight):
             continue
-        st.session_state.classification_params[f"weight_{param_id}"] = float(weight)
+        st.session_state.classification_params[param_id] = float(weight)
+
+    for _, row in classification_settings_df.iterrows():
+        setting_key = row.get("Innstilling", "")
+        setting_value = row.get("Verdi", "")
+        if pd.isna(setting_key) or pd.isna(setting_value):
+            continue
+        setting_key = str(setting_key).strip()
+        if setting_key == "Optimeringsstrategi":
+            st.session_state.classification_params["optimization_strategy"] = str(setting_value)
+        elif setting_key == "Maksimalt antall klasser":
+            st.session_state.classification_params["max_classes"] = int(float(setting_value))
 
     st.session_state.listed_concepts = {}
     for _, row in listed_concepts_df.iterrows():
@@ -251,6 +263,15 @@ def import_from_excel():
         else:
             classification_params_df = pd.DataFrame()
 
+        if 'Innstillinger' in xls.sheet_names:
+            classification_settings_df = pd.read_excel(
+                xls,
+                sheet_name='Innstillinger',
+                engine="openpyxl",
+            )
+        else:
+            classification_settings_df = pd.DataFrame()
+
         if 'Rød- og grønnlistede konsepter' in xls.sheet_names:
             listed_concepts_df = pd.read_excel(xls, sheet_name='Rød- og grønnlistede konsepter', engine="openpyxl")
         else:
@@ -267,6 +288,7 @@ def import_from_excel():
             inconsistent_combinations_df,
             concepts_df,
             classification_params_df,
+            classification_settings_df,
             listed_concepts_df,
             possible_combinations_df,
         )
