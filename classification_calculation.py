@@ -325,6 +325,20 @@ def transform_nodes_to_graphviz(
             graphviz_nodes.append(f'"{concept_id}" [label={label}];')
     return "\n".join(graphviz_nodes)
 
+
+def transform_ranks_to_graphviz(concepts):
+    concepts_by_specified_count = defaultdict(list)
+    for concept_id, concept in concepts.items():
+        specified_count = len(concept.get("intent", []))
+        concepts_by_specified_count[specified_count].append(concept_id)
+
+    rank_blocks = []
+    for specified_count in sorted(concepts_by_specified_count.keys(), reverse=True):
+        node_ids = " ".join(f'"{concept_id}";' for concept_id in concepts_by_specified_count[specified_count])
+        rank_blocks.append(f"{{ rank=same; {node_ids} }}")
+
+    return "\n".join(rank_blocks)
+
 def generate_graphviz_legend():
     return """
         digraph Legend {

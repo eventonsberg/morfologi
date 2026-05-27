@@ -12,6 +12,7 @@ from classification_calculation import (
     generate_concept_score_df,
     transform_nodes_to_graphviz,
     transform_edges_to_graphviz,
+    transform_ranks_to_graphviz,
     generate_graphviz_legend,
 )
 from classification_optimization import compute_optimal_selection, build_score_history_chart
@@ -153,6 +154,7 @@ def classification():
             concept_labels=concept_labels,
             listed_concepts=st.session_state.listed_concepts,
         )
+        graphviz_ranks = transform_ranks_to_graphviz(concepts)
         graphviz_edges = transform_edges_to_graphviz(edges, edge_losses)
         st.session_state.concepts_graph = f"""
             digraph G {{
@@ -160,6 +162,7 @@ def classification():
                 ranksep=1.5;
                 node [fontsize=10];
                 {graphviz_nodes}
+                {graphviz_ranks}
                 {graphviz_edges}
             }}
         """
