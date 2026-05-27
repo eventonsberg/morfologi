@@ -14,7 +14,7 @@ from classification_calculation import (
     transform_edges_to_graphviz,
     generate_graphviz_legend,
 )
-from classification_optimization import compute_optimal_average_selection, build_score_history_chart
+from classification_optimization import compute_optimal_selection, build_score_history_chart
 from helpers import (
     get_param_name_by_id,
     get_value_name_by_id,
@@ -119,9 +119,11 @@ def classification():
 
         persistence = rescale_persistence_0_1(raw_persistence, min_value=shared_min, max_value=shared_max)
         edge_losses = rescale_persistence_0_1(raw_edge_losses, min_value=shared_min, max_value=shared_max)
-        best_solution = compute_optimal_average_selection(
+        best_solution = compute_optimal_selection(
             concepts,
             persistence,
+            optimization_strategy=st.session_state.classification_params["optimization_strategy"],
+            max_classes=st.session_state.classification_params["max_classes"],
             listed_concepts=st.session_state.listed_concepts,
             score_plot_placeholder=score_plot_placeholder,
             score_history_output=score_history,
@@ -174,7 +176,6 @@ def classification():
         history_chart = build_score_history_chart(stored_score_history)
         if history_chart is not None:
             st.altair_chart(history_chart)
-            st.caption("Beregningen stopper hvis beste gjennomsnittscore ikke endres i løpet av 10 påfølgende iterasjoner.")
     
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     col1.header("Kombinasjonsklasser")
