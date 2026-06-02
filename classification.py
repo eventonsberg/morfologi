@@ -42,6 +42,15 @@ def classification():
 
     classification_params = st.session_state.classification_params
 
+    # Apply pending slider resets before creating widgets to avoid Streamlit key mutation errors.
+    pending_slider_weights = st.session_state.pop("pending_classification_slider_weights", None)
+    if pending_slider_weights:
+        for param in st.session_state.params:
+            param_id = param["param_id"]
+            slider_key = f"classification_weight_{param_id}"
+            if param_id in pending_slider_weights:
+                st.session_state[slider_key] = float(pending_slider_weights[param_id])
+
     with st.form("classification_params_form"):
         st.markdown(
             "**Parametervekter**",
@@ -51,13 +60,21 @@ def classification():
         for param in st.session_state.params:
             param_id = param["param_id"]
             param_name = param["param_name"]
+            slider_key = f"classification_weight_{param_id}"
+            if slider_key not in st.session_state:
+                st.session_state[slider_key] = float(classification_params.get(param_id, 0.50))
             param_weights[param_id] = st.slider(
                 param_name,
                 min_value=0.00,
                 max_value=1.00,
-                value=float(classification_params.get(param_id, 0.50)),
-                step=0.01
+                step=0.01,
+                key=slider_key,
             )
+        normalize_param_weights = st.form_submit_button(
+            "Normaliser vektene",
+            icon=":material/balance:",
+            help="Setter vektene til :blue-badge[1 / # verdier] for hver parameter, slik at alle parametere blir like utslagsgivende uavhengig av antall mulige verdier."
+        ) 
         st.markdown(
             "**Innstillinger for klassifisering**",
         )
@@ -73,7 +90,28 @@ def classification():
             value=int(classification_params.get("max_classes", 10)),
             step=1
         )
-        update_classification = st.form_submit_button("Oppdater klassifisering", type="primary")
+        update_classification = st.form_submit_button(
+            "Oppdater klassifisering",
+            type="primary",
+            icon=":material/play_arrow:"
+        )
+
+    if normalize_param_weights:
+        normalized_weights = {}
+        for param in st.session_state.params:
+            param_id = param["param_id"]
+            n_values = len(param.get("values", []))
+            normalized_weight = (1.0 / n_values) if n_values > 0 else 0.0
+            normalized_weights[param_id] = normalized_weight
+
+        st.session_state.classification_params = {
+            **st.session_state.classification_params,
+            **normalized_weights,
+            "optimization_strategy": param_weights["optimization_strategy"],
+            "max_classes": param_weights["max_classes"],
+        }
+        st.session_state.pending_classification_slider_weights = normalized_weights
+        st.rerun()
 
     if update_classification:
         score_plot_placeholder = st.empty()
