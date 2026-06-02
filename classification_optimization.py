@@ -116,6 +116,20 @@ def compute_optimal_selection(
             listed_concepts=listed_concepts,
         )
 
+        if selected is None or total_score is None or len(selected) == 0:
+            if score_plot_placeholder is not None:
+                score_history.append(
+                    {
+                        "Antall klasser": k,
+                        "Gjennomsnittsscore": None,
+                        "Totalscore": None,
+                    }
+                )
+                chart = build_score_history_chart(score_history)
+                if chart is not None:
+                    score_plot_placeholder.altair_chart(chart)
+            continue
+
         avg_score = total_score / len(selected)
         if optimization_strategy == "Høyest totalscore":
             improved = total_score > best_score
