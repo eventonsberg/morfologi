@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 from helpers import get_param_name_by_id, get_value_name_by_id
 from itertools import combinations
 from typing import Dict, Set
@@ -246,6 +247,174 @@ def generate_concept_score_df(concepts, persistence, concept_labels=None):
             "_intent_tuple": cid,
         })
     return pd.DataFrame(data)
+
+
+def build_selection_history_chart(score_history):
+    if not score_history:
+        return None
+
+    param_name_by_id = get_param_name_by_id(st.session_state.params)
+    value_name_by_id = get_value_name_by_id(st.session_state.params)
+    concept_register = st.session_state.get("concepts", {})
+    concept_score_df = st.session_state.get("concept_score_df")
+    listed_concepts = st.session_state.get("listed_concepts", {})
+
+    concept_name_by_intent = {}
+    concept_metadata_by_intent = {}
+    if concept_score_df is not None and not concept_score_df.empty:
+        if "_intent_tuple" in concept_score_df.columns and "Konsept" in concept_score_df.columns:
+            for _, row in concept_score_df.iterrows():
+                intent_tuple = row.get("_intent_tuple")
+                concept_name = row.get("Konsept")
+                if isinstance(intent_tuple, tuple) and pd.notna(concept_name):
+                    concept_name_by_intent[intent_tuple] = str(concept_name)
+                if isinstance(intent_tuple, tuple):
+                    concept_metadata_by_intent[intent_tuple] = {
+                        "Kombinasjoner": row.get("Kombinasjoner"),
+                        "Konseptverdi": row.get("Konseptverdi"),
+                    }
+
+    def concept_label_and_properties_from_intent(concept_intent_tuple):
+        concept_name = concept_name_by_intent.get(concept_intent_tuple, "")
+        if not concept_name:
+            concept_info = concept_register.get(concept_intent_tuple, {})
+            concept_name = concept_info.get("name", "")
+
+        intent_descriptions = []
+        for intent in concept_intent_tuple:
+            if " = " not in intent:
+                continue
+            param_id, value_id = intent.split(" = ", 1)
+            param_name = param_name_by_id.get(param_id, f"Param {param_id}")
+            value_name = value_name_by_id.get(value_id, f"Verdi {value_id}")
+            intent_descriptions.append(f"{param_name} = {value_name}")
+
+        concept_label = concept_name if concept_name else "; ".join(intent_descriptions)
+        if not concept_label:
+            concept_label = "(Tomt konsept)"
+        concept_properties = "; ".join(intent_descriptions) if intent_descriptions else "Ingen egenskaper"
+
+        metadata = concept_metadata_by_intent.get(concept_intent_tuple, {})
+        combinations_count = metadata.get("Kombinasjoner")
+        concept_value = metadata.get("Konseptverdi")
+
+        if pd.isna(combinations_count):
+            concept_info = concept_register.get(concept_intent_tuple, {})
+            concept_extent = concept_info.get("extent") or []
+            combinations_count = len(concept_extent)
+
+        if pd.isna(concept_value):
+            concept_value = None
+
+        return concept_label, concept_properties, combinations_count, concept_value
+
+    chart_rows = []
+    for history_row in score_history:
+        k = history_row.get("Antall klasser")
+        selection = history_row.get("Utvalg") or []
+        if k is None:
+            continue
+
+        for concept_intent_tuple in selection:
+            if not isinstance(concept_intent_tuple, tuple):
+                continue
+            concept_label, concept_properties, combinations_count, concept_value = concept_label_and_properties_from_intent(concept_intent_tuple)
+            list_state = listed_concepts.get(concept_intent_tuple)
+            if list_state == "green":
+                bar_color_state = "green"
+            elif list_state == "red":
+                bar_color_state = "red"
+            else:
+                bar_color_state = "standard"
+
+            chart_rows.append(
+                {
+                    "Antall klasser": int(k),
+                    "Konsept": concept_label,
+                    "Egenskaper": concept_properties,
+                    "Kombinasjoner": combinations_count,
+                    "Konseptverdi": concept_value,
+                    "Fargestatus": bar_color_state,
+                    "x_start": float(k) - 0.5,
+                    "x_end": float(k) + 0.5,
+                }
+            )
+
+    if not chart_rows:
+        return None
+
+    chart_df = pd.DataFrame(chart_rows)
+    min_k = int(chart_df["Antall klasser"].min())
+    max_k = int(chart_df["Antall klasser"].max())
+    concept_order_by_presence = (
+        chart_df.groupby("Konsept")["Antall klasser"]
+        .nunique()
+        .sort_values(ascending=False)
+        .index
+        .tolist()
+    )
+
+    concept_order = []
+    if concept_score_df is not None and not concept_score_df.empty:
+        if (
+            "_intent_tuple" in concept_score_df.columns
+            and "Konseptverdi" in concept_score_df.columns
+        ):
+            sorted_concept_score_df = concept_score_df.sort_values(
+                by="Konseptverdi",
+                ascending=False,
+                na_position="last",
+            )
+            for _, row in sorted_concept_score_df.iterrows():
+                intent_tuple = row.get("_intent_tuple")
+                if not isinstance(intent_tuple, tuple):
+                    continue
+                concept_label, _, _, _ = concept_label_and_properties_from_intent(intent_tuple)
+                if concept_label in chart_df["Konsept"].values and concept_label not in concept_order:
+                    concept_order.append(concept_label)
+
+    for concept_label in concept_order_by_presence:
+        if concept_label not in concept_order:
+            concept_order.append(concept_label)
+
+    chart_height = max(260, 30 * len(concept_order))
+
+    return alt.Chart(chart_df).mark_bar(size=12).encode(
+        x=alt.X(
+            "x_start:Q",
+            title="Antall klasser",
+            scale=alt.Scale(domainMin=float(min_k) - 0.5, domainMax=float(max_k) + 0.5, nice=False),
+            axis=alt.Axis(tickMinStep=1),
+        ),
+        x2="x_end:Q",
+        y=alt.Y(
+            "Konsept:N",
+            title="Valgte konsepter",
+            sort=concept_order,
+            axis=alt.Axis(
+                labelOverlap=False,
+                labelLimit=1000,
+            ),
+        ),
+        color=alt.Color(
+            "Fargestatus:N",
+            scale=alt.Scale(
+                domain=["green", "red", "standard"],
+                range=["#2E7D32", "#C62828", "#1f77b4"],
+            ),
+            legend=None,
+        ),
+        tooltip=[
+            alt.Tooltip("Antall klasser:Q", format=".0f"),
+            alt.Tooltip("Konsept:N"),
+            alt.Tooltip("Kombinasjoner:Q", format=".0f"),
+            alt.Tooltip("Konseptverdi:Q", format=".2f"),
+            alt.Tooltip("Egenskaper:N"),
+        ],
+    ).properties(
+        title="Klasseutvalg som gir høyest total konseptverdi",
+        height=chart_height,
+    )
 
 
 # ----- GRAPHVIZ -----

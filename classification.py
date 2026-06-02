@@ -10,6 +10,7 @@ from classification_calculation import (
     compute_persistence,
     rescale_persistence_0_1,
     generate_concept_score_df,
+    build_selection_history_chart,
     transform_nodes_to_graphviz,
     transform_edges_to_graphviz,
     transform_ranks_to_graphviz,
@@ -392,3 +393,9 @@ def classification():
 
             st.session_state.concept_score_df = updated_concept_score_df
         st.rerun()
+
+    if stored_score_history:
+        selection_history_chart = build_selection_history_chart(stored_score_history)
+        if selection_history_chart is not None:
+            st.divider()
+            st.altair_chart(selection_history_chart, use_container_width=True)

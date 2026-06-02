@@ -13,6 +13,7 @@ def build_score_history_chart(score_history):
     chart_df = pd.DataFrame(score_history)
     chart_data = chart_df.melt(
         id_vars="Antall klasser",
+        value_vars=["Gjennomsnittsscore", "Totalscore"],
         var_name="Type",
         value_name="Score",
     )
@@ -123,6 +124,7 @@ def compute_optimal_selection(
                         "Antall klasser": k,
                         "Gjennomsnittsscore": None,
                         "Totalscore": None,
+                        "Utvalg": None,
                     }
                 )
                 chart = build_score_history_chart(score_history)
@@ -153,6 +155,7 @@ def compute_optimal_selection(
                     "Antall klasser": k,
                     "Gjennomsnittsscore": avg_score,
                     "Totalscore": total_score,
+                    "Utvalg": selected,
                 }
             )
             chart = build_score_history_chart(score_history)
